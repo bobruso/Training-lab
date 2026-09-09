@@ -1,0 +1,42 @@
+from pathlib import Path
+
+old='20260909ui65'
+new='20260909home66'
+
+p=Path('index.html')
+s=p.read_text(encoding='utf-8')
+s=s.replace('<div id="updateNotice" class="notice" hidden>Versión actualizada disponible. Guarda lo que estés editando y <button class="btn alt" onclick="location.reload()">recarga</button>.</div>', '<div id="updateNotice" class="update-modal" hidden><div class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="updateTitle"><div class="eyebrow">Actualización</div><h2 id="updateTitle">Nueva versión disponible</h2><p class="muted">Training Lab tiene una versión más reciente. Pulsa actualizar para cargarla.</p><button class="btn big" onclick="location.reload()">Actualizar ahora</button></div></div>')
+s=s.replace('<div class="card metric"><div class="k">Readiness</div><div class="v" id="readinessScore">—</div><div class="muted" id="readinessWhy">Necesito sueño + check-in.</div></div>', '<div class="card metric readiness-card"><div class="k">Estado para entrenar</div><div class="v" id="readinessScore">—</div><div class="readiness-label" id="readinessLabel">Calculando...</div><div class="muted" id="readinessWhy">Combina sueño, recuperación, carga reciente y cómo te encuentras.</div><details class="readiness-help"><summary>¿Qué significa?</summary><p class="small muted">Es una estimación orientativa de lo preparado que estás hoy para entrenar. No es una medición médica. Cuanto más alto, más favorable es el contexto para meter carga; cuanto más bajo, más conviene ajustar o recuperar.</p><div id="readinessBreakdown"></div></details></div>')
+s=s.replace('v6.5 · build ui65','v6.6 · build home66').replace(old,new)
+p.write_text(s,encoding='utf-8')
+
+p=Path('app.js')
+s=p.read_text(encoding='utf-8')
+s=s.replace("function mealForHour(h){if(h>=13&&h<16)return'desayuno';if(h>=16&&h<19)return'comida';if(h>=19&&h<22)return'merienda';if(h>=22||h<2)return'cena';return'recena'}", "function mealForHour(h){if(h>=13&&h<15)return'desayuno';if(h>=15&&h<18)return'comida';if(h>=18&&h<21)return'merienda';if(h>=21||h<1)return'cena';return'recena'}")
+old_fn="function renderReadiness(){const r=readiness(),el=document.getElementById('readinessScore');if(!el)return;el.textContent=r.score+'/100';document.getElementById('readinessWhy').textContent=r.text}"
+new_fn="""function renderReadiness(){
+ const r=readiness(),el=document.getElementById('readinessScore');if(!el)return;
+ const label=r.score>=80?'Muy buena disponibilidad':r.score>=65?'Buena disponibilidad':r.score>=50?'Disponibilidad intermedia':'Disponibilidad baja';
+ el.textContent=r.score+'/100';
+ const lab=document.getElementById('readinessLabel');if(lab)lab.textContent=label;
+ const why=document.getElementById('readinessWhy');if(why)why.textContent='Te orienta sobre cuánta carga tiene sentido meter hoy. Se calcula con tus datos reales y tu percepción.';
+ const box=document.getElementById('readinessBreakdown');if(box){
+   const parts=(r.parts||[]).filter(p=>p.label!=='Base orientativa');
+   box.innerHTML=parts.length?parts.map(p=>`<div class=\"readiness-factor\"><span>${p.label}</span><b class=\"${p.value>0?'delta-good':p.value<0?'delta-bad':'delta-neutral'}\">${p.value>0?'+':''}${p.value}</b></div>`).join(''):'<div class=\"small muted\">Todavía faltan datos para desglosarlo bien.</div>';
+   if(r.missing?.length)box.innerHTML+=`<div class=\"small muted readiness-missing\">Aún faltan: ${r.missing.join(', ')}.</div>`;
+ }
+}"""
+if old_fn not in s:
+    raise SystemExit('renderReadiness target not found')
+s=s.replace(old_fn,new_fn,1).replace(old,new)
+p.write_text(s,encoding='utf-8')
+
+p=Path('styles.css')
+s=p.read_text(encoding='utf-8').replace('v6.5 · ui65','v6.6 · home66')
+if '/* home-v66 */' not in s:
+    s += '''\n\n/* home-v66 */\n.update-modal{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:24px;background:rgba(3,7,10,.58);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}\n.update-dialog{width:min(92vw,430px);background:linear-gradient(180deg,#1a2429,#11181c);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 30px 90px rgba(0,0,0,.55);text-align:center}\n.update-dialog h2{margin:6px 0 8px;font-size:28px}.update-dialog .eyebrow{margin-bottom:4px}\n.readiness-label{font-weight:900;margin:2px 0 6px;color:var(--lime)}\n.readiness-help{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}\n.readiness-help summary{cursor:pointer;font-weight:850;color:var(--text)}\n.readiness-help p{margin:9px 0}\n.readiness-factor{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid rgba(255,255,255,.05);font-size:12px}\n.readiness-missing{margin-top:8px}\n'''
+p.write_text(s,encoding='utf-8')
+
+p=Path('service-worker.js')
+s=p.read_text(encoding='utf-8').replace(old,new)
+p.write_text(s,encoding='utf-8')
