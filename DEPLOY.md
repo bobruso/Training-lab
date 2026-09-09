@@ -2,30 +2,26 @@
 
 ## 1. GitHub Pages
 
-Crea un repositorio nuevo, por ejemplo `training-lab`.
+Repositorio: `bobruso/Training-lab`
 
-Sube **el contenido de este ZIP a la raíz**, conservando las carpetas.
+URL publicada:
 
-En GitHub:
+`https://bobruso.github.io/Training-lab/`
 
-1. Settings
-2. Pages
-3. Source → Deploy from a branch
-4. Branch → `main`
-5. Folder → `/ (root)`
+La web se sirve desde `main` → `/ (root)`.
 
 ## 2. Supabase Auth
 
-Cuando GitHub muestre la URL final, por ejemplo:
-
-`https://TU_USUARIO.github.io/training-lab/`
-
-añade en Supabase:
+En Supabase:
 
 Authentication → URL Configuration → Redirect URLs
 
-- `https://TU_USUARIO.github.io/training-lab/**`
+Añadir:
+
+- `https://bobruso.github.io/Training-lab/**`
 - `traininglab://auth`
+
+La primera permite que el magic link vuelva correctamente a GitHub Pages. La segunda permite que, desde el companion Android, el magic link vuelva a la app en lugar de quedarse en Chrome.
 
 ## 3. Primera prueba web
 
@@ -38,9 +34,13 @@ Authentication → URL Configuration → Redirect URLs
 
 ## 4. Companion Android / Health Connect
 
-Cambia la URL de:
+La URL del companion ya está configurada en:
 
 `android-companion/app/src/main/res/values/strings.xml`
+
+con:
+
+`https://bobruso.github.io/Training-lab/`
 
 Abre la carpeta `android-companion` con Android Studio y compila.
 
