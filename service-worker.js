@@ -1,5 +1,6 @@
 const CACHE='training-lab-803b7fff04';
 const ASSETS=['./','./index.html','./app.js?v=803b7fff04','./runtime.js?v=803b7fff04','./styles.css?v=803b7fff04','./domain.js?v=803b7fff04','./vendor/supabase.js?v=803b7fff04','./vendor/fit-local.js?v=803b7fff04','./manifest.webmanifest','./privacy.html'];
+// Runtime refresh: account controls moved from Home into Ajustes / Perfil.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   // Installation is atomic: a missing asset keeps the old worker active.
