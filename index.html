@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.2 · build 803b7fff04">
-<script src="./runtime.js?v=803b7fff04" defer></script>
+<meta name="build" content="v6.3 · build sleep63">
+<script src="./runtime.js?v=20260909sleep63" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=803b7fff04">
+<link rel="stylesheet" href="./styles.css?v=20260909sleep63">
 </head>
 <body>
 <div class="app">
@@ -201,19 +201,39 @@
 
 
  <section class="page" id="sueno">
-  <div class="sectionhead"><h2>Sueño</h2><span class="muted">analizado contra tu horario real, no contra uno convencional</span></div>
-  <div class="grid g3">
-   <div class="card module-hero"><div class="eyebrow">Último sueño</div><div class="sleep-ring" id="sleepRing" style="--pct:0%"><b id="sleepScore">—</b></div><p id="sleepSummary" class="muted">Sin datos todavía.</p></div>
-   <div class="card"><div class="eyebrow">Tu cronotipo operativo</div><h2>05:00 → 13:00</h2><p class="muted">La app considera normal una variación aproximada de ±1 hora. La consistencia se calcula contra tu propio horario, no contra acostarse antes de medianoche.</p><div id="sleepConsistency" class="notice">Pendiente de datos.</div></div>
-   <div class="card"><div class="eyebrow">COROS PACE 4</div><h2>Sleep + HRV</h2><p class="muted">PACE 4 puede aportar Sleep Score, sueño profundo/ligero/REM, despertares, siestas y HRV nocturna.</p><button class="btn alt" onclick="alertCorosSleep()">Estado COROS</button><button class="btn alt" style="margin-left:6px" onclick="syncHealthConnect()">Health Connect</button><div id="corosSleepStatus" class="small muted" style="margin-top:8px">La conexión de cuenta debe autorizarse.</div><div id="sleepSyncStatus" class="small muted" style="margin-top:6px"></div></div>
+  <div class="sectionhead">
+   <div><h2>Sueño</h2><span class="muted">última noche, fases, tendencias y análisis personal</span></div>
+   <button class="btn alt" onclick="syncHealthConnect()">Sincronizar Health Connect</button>
   </div>
+
+  <div class="card module-hero sleep-overview">
+   <div class="eyebrow">Última noche</div>
+   <h1 id="sleepHeadline" class="sleep-headline">Esperando datos de sueño</h1>
+   <p id="sleepVerdict" class="muted">Training Lab sincroniza Health Connect automáticamente al abrir la APK.</p>
+   <div class="grid g4" id="sleepKeyMetrics" style="margin-top:16px"></div>
+   <div class="sleep-stagebar" id="sleepStageBar" aria-label="Distribución de fases del sueño"></div>
+   <div class="sleep-stage-legend" id="sleepStageLegend"></div>
+   <div class="sleep-window" id="sleepWindow"></div>
+   <div id="sleepSyncStatus" class="small muted" style="margin-top:10px"></div>
+  </div>
+
   <div class="section grid g2">
-   <div class="card"><div class="eyebrow">Registrar sueño manual</div><h2>Fallback / corrección</h2>
-    <div class="formrow"><div class="field"><label>Fecha</label><input type="date" id="sleepDate"></div><div class="field"><label>Dormir</label><input type="time" id="sleepStart" value="05:00"></div><div class="field"><label>Despertar</label><input type="time" id="sleepEnd" value="13:00"></div><div class="field"><label>Sleep score</label><input type="number" id="sleepScoreInput" min="0" max="100"></div></div>
-    <div class="formrow" style="margin-top:8px"><div class="field"><label>Profundo min</label><input type="number" id="deepMin"></div><div class="field"><label>REM min</label><input type="number" id="remMin"></div><div class="field"><label>HRV media</label><input type="number" id="sleepHrv"></div><div class="field"><label>FC reposo</label><input type="number" id="sleepRhr"></div></div>
-    <button class="btn" style="margin-top:10px" onclick="saveSleep()">Guardar sueño</button>
+   <div class="card">
+    <div class="eyebrow">Análisis de la noche</div>
+    <h2>Qué dicen tus datos</h2>
+    <div id="sleepAnalysisList" class="sleep-analysis-list"><p class="muted">Sin datos recientes.</p></div>
    </div>
-   <div class="card"><div class="eyebrow">Estudio profundo</div><h2>Qué vamos a correlacionar</h2><div id="sleepInsights" class="muted">Necesitamos varias noches para detectar tendencias: sueño total, regularidad, HRV, FC reposo, alcohol, cafeína tarde, carga de entrenamiento y rendimiento posterior.</div></div>
+   <div class="card">
+    <div class="eyebrow">Historial reciente</div>
+    <h2>Últimas noches</h2>
+    <div id="sleepHistory"><p class="muted">Necesitamos más noches sincronizadas.</p></div>
+   </div>
+  </div>
+
+  <div class="card section" id="sleepDeepStudy" style="display:none">
+   <div class="eyebrow">Estudio profundo</div>
+   <h2 id="sleepDeepTitle">Tu patrón de sueño</h2>
+   <div id="sleepInsights" class="sleep-analysis-list"></div>
   </div>
  </section>
 
@@ -310,6 +330,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=803b7fff04"></script>
+<script type="module" src="./app.js?v=20260909sleep63"></script>
 </body>
 </html>

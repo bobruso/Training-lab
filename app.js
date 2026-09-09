@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=803b7fff04';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=803b7fff04';
-import { createClient } from "./vendor/supabase.js?v=803b7fff04";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909sleep63';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909sleep63';
+import { createClient } from "./vendor/supabase.js?v=20260909sleep63";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -412,7 +412,13 @@ async function applySession(session){
  }
  setCloudUI();renderAll();
  window.TrainingLab.update({authenticated:!!currentUser,email:currentUser?.email||null});
- if(currentUser){await ensureProfile();if(generation===authGeneration)await loadCloud();}
+ if(currentUser){
+   await ensureProfile();
+   if(generation===authGeneration){
+     await loadCloud();
+     queueAutoHealthConnectSync();
+   }
+ }
 }
 window.TrainingLab.passwordAuth=async(action,email,password)=>{
  let result;
@@ -541,22 +547,84 @@ window.alertCorosSleep=function(){
  document.getElementById('corosSleepStatus').textContent='COROS está soportado a nivel de datos, pero tu cuenta debe autorizar el conector/API. La web seguirá funcionando con Health Connect/registro manual mientras tanto.';
 }
 function renderSleep(){
- const a=cloudSleep?.find(s=>(Date.now()-new Date(s.sleep_end||s.sleep_date+'T13:00:00'))/36e5<=36), ring=document.getElementById('sleepRing'); if(!ring)return;
- if(!a){document.getElementById('sleepScore').textContent='—';document.getElementById('todaySleep').textContent='—';document.getElementById('todaySleepWindow').textContent='Falta sueño reciente';document.getElementById('sleepSummary').textContent='Sin sueño reciente';document.getElementById('sleepConsistency').textContent='Referencia personal: 05:00–13:00 ±1 h';ring.style.setProperty('--pct','0%');return}
- const score=a.sleep_score??null;
- ring.style.setProperty('--pct',score+'%');document.getElementById('sleepScore').textContent=score??'—';
- const hrs=((a.total_sleep_min||0)/60).toFixed(1);
- document.getElementById('sleepSummary').textContent=`${hrs} h · profundo ${a.deep_sleep_min??'—'} min · REM ${a.rem_sleep_min??'—'} min · HRV ${a.avg_hrv??'—'}`;
- let start=a.sleep_start?new Date(a.sleep_start).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
- let end=a.sleep_end?new Date(a.sleep_end).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
- const consistency=(start!=='—')?circDistMin(start,'05:00'):999;
- document.getElementById('sleepConsistency').textContent=`${start} → ${end}. Desviación de tu hora habitual: ${consistency<=60?consistency+' min · normal':Math.round(consistency/60*10)/10+' h · fuera de tu rango habitual'}.`;
- let insight='Con 7–14 noches empezaremos a comparar duración, regularidad, HRV y FC en reposo.';
- if(cloudSleep.length>=5){
-  const mins=cloudSleep.slice(0,7).map(x=>x.total_sleep_min||0); insight=`Media reciente: ${(mins.reduce((a,b)=>a+b,0)/mins.length/60).toFixed(1)} h. Tu objetivo práctico está alrededor de 8 h, manteniendo consistencia dentro de ±1 h.`;
+ const headline=document.getElementById('sleepHeadline');
+ if(!headline)return;
+ const recent=cloudSleep?.find(s=>(Date.now()-new Date(s.sleep_end||s.sleep_date+'T13:00:00'))/36e5<=40);
+ const metrics=document.getElementById('sleepKeyMetrics'),bar=document.getElementById('sleepStageBar'),legend=document.getElementById('sleepStageLegend');
+ const analysis=document.getElementById('sleepAnalysisList'),history=document.getElementById('sleepHistory'),deepStudy=document.getElementById('sleepDeepStudy');
+ const verdict=document.getElementById('sleepVerdict'),windowEl=document.getElementById('sleepWindow');
+ const fmtMin=m=>{m=Math.max(0,Math.round(Number(m)||0));return `${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')} min`;};
+ const localTime=v=>v?new Date(v).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
+ const percent=(v,total)=>total>0?Math.max(0,Number(v)||0)/total*100:0;
+ if(!recent){
+   headline.textContent='Aún no hay sueño reciente';
+   verdict.textContent='La APK intentará sincronizar Health Connect automáticamente al abrirse. También puedes usar el botón manual.';
+   metrics.innerHTML=metricBox('Sueño total','—')+metricBox('Profundo','—')+metricBox('REM','—')+metricBox('Ligero','—');
+   bar.innerHTML='';legend.innerHTML='';windowEl.textContent='Sin una noche reciente sincronizada.';
+   analysis.innerHTML='<p class="muted">Cuando Health Connect entregue una noche aparecerá aquí el análisis.</p>';
+   history.innerHTML='<p class="muted">Necesitamos noches sincronizadas.</p>';
+   deepStudy.style.display='none';
+   document.getElementById('todaySleep').textContent='—';document.getElementById('todaySleepWindow').textContent='Falta sueño reciente';
+   return;
  }
- document.getElementById('sleepInsights').textContent=insight;
- document.getElementById('todaySleep').textContent=hrs+' h';document.getElementById('todaySleepWindow').textContent=`${start} → ${end}`;
+ const total=Number(recent.total_sleep_min)||0,deep=Number(recent.deep_sleep_min)||0,light=Number(recent.light_sleep_min)||0,rem=Number(recent.rem_sleep_min)||0;
+ const start=localTime(recent.sleep_start),end=localTime(recent.sleep_end);
+ const sessionMin=recent.sleep_start&&recent.sleep_end?Math.max(0,(new Date(recent.sleep_end)-new Date(recent.sleep_start))/60000):total;
+ const awake=recent.awake_min!=null?Number(recent.awake_min):Math.max(0,sessionMin-total);
+ const pDeep=percent(deep,total),pLight=percent(light,total),pRem=percent(rem,total);
+ const startDev=start!=='—'?circDistMin(start,'05:00'):null,endDev=end!=='—'?circDistMin(end,'13:00'):null;
+ const target=480,diff=total-target;
+ let title=total>=450?'Buena duración de sueño':total>=420?'Noche bastante completa':total>=360?'Sueño algo corto':'Sueño claramente corto';
+ if(startDev!=null&&startDev<=60)title+=' y horario estable';
+ else if(startDev!=null&&startDev>90)title+=' con horario desplazado';
+ headline.textContent=title;
+ const durationText=diff>=0?`Has superado en ${fmtMin(diff)} tu referencia práctica de 8 h.`:`Te has quedado a ${fmtMin(Math.abs(diff))} de la referencia práctica de 8 h.`;
+ verdict.textContent=`Has dormido ${fmtMin(total)}. ${durationText}`;
+ const scoreCard=recent.sleep_score!=null?metricBox('Sleep Score',Math.round(recent.sleep_score)):'';
+ metrics.innerHTML=metricBox('Sueño total',fmtMin(total))+metricBox('Profundo',`${Math.round(deep)} min · ${pDeep.toFixed(0)}%`)+metricBox('REM',`${Math.round(rem)} min · ${pRem.toFixed(0)}%`)+metricBox('Ligero',`${Math.round(light)} min · ${pLight.toFixed(0)}%`)+scoreCard;
+ const stageSum=Math.max(1,deep+light+rem+awake);
+ bar.innerHTML=`<span class="deep" style="width:${deep/stageSum*100}%"></span><span class="light" style="width:${light/stageSum*100}%"></span><span class="rem" style="width:${rem/stageSum*100}%"></span>${awake>0?`<span class="awake" style="width:${awake/stageSum*100}%"></span>`:''}`;
+ legend.innerHTML=`<span><i class="deep"></i><b>Profundo</b> ${Math.round(deep)} min</span><span><i class="light"></i><b>Ligero</b> ${Math.round(light)} min</span><span><i class="rem"></i><b>REM</b> ${Math.round(rem)} min</span>${awake>0?`<span><i class="awake"></i><b>Despierto/sin clasificar</b> ~${Math.round(awake)} min</span>`:''}`;
+ windowEl.textContent=`Sesión registrada ${start} → ${end}${startDev!=null?` · inicio ${startDev<=60?'dentro':'fuera'} de tu ventana habitual (±1 h)`:''}`;
+ const notes=[];
+ notes.push(total>=420?`Duración: ${fmtMin(total)} es una base razonable para recuperación.`:`Duración: ${fmtMin(total)} puede limitar recuperación si se repite varios días.`);
+ if(deep||rem||light)notes.push(`Arquitectura registrada: ${pDeep.toFixed(0)}% profundo, ${pRem.toFixed(0)}% REM y ${pLight.toFixed(0)}% ligero. Miraremos sobre todo tu propia tendencia, no una noche aislada.`);
+ if(startDev!=null)notes.push(startDev<=60?`Regularidad: te dormiste prácticamente dentro de tu horario habitual; desviación ${startDev} min.`:`Regularidad: el inicio se desplazó ${startDev} min respecto a las 05:00 habituales.`);
+ if(endDev!=null&&endDev>60)notes.push(`La sesión terminó ${Math.round(endDev/60*10)/10} h alejada de las 13:00 habituales. Health Connect puede incluir tiempo despierto dentro de la sesión, así que no lo tratamos automáticamente como sueño real.`);
+ if(recent.avg_hrv!=null){
+   const vals=cloudSleep.filter(x=>x.avg_hrv!=null).slice(0,14).map(x=>Number(x.avg_hrv));
+   const baseline=vals.length>=5?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+   notes.push(baseline?`HRV nocturna: ${Number(recent.avg_hrv).toFixed(0)} ms frente a tu media reciente ${baseline.toFixed(0)} ms.`:`HRV nocturna: ${Number(recent.avg_hrv).toFixed(0)} ms. Necesitamos más noches para crear tu baseline.`);
+ }else notes.push('HRV nocturna: Health Connect no la ha entregado en esta sincronización; no se estima ni se inventa.');
+ if(recent.resting_hr!=null){
+   const vals=cloudSleep.filter(x=>x.resting_hr!=null).slice(0,14).map(x=>Number(x.resting_hr));
+   const baseline=vals.length>=5?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+   notes.push(baseline?`FC en reposo: ${Math.round(recent.resting_hr)} ppm frente a tu media reciente ${baseline.toFixed(0)} ppm.`:`FC en reposo durante la ventana: ${Math.round(recent.resting_hr)} ppm.`);
+ }
+ if(Array.isArray(recent.naps)&&recent.naps.length)notes.push(`Siestas detectadas: ${recent.naps.length}, ${recent.naps.reduce((s,n)=>s+Number(n.duration_min||0),0)} min en total.`);
+ analysis.innerHTML=notes.map(x=>`<div class="insight">${x}</div>`).join('');
+ const nights=cloudSleep.slice(0,7);
+ history.innerHTML=nights.map(n=>{
+   const t=Math.max(1,Number(n.total_sleep_min)||0),d=Number(n.deep_sleep_min)||0,l=Number(n.light_sleep_min)||0,r=Number(n.rem_sleep_min)||0,other=Math.max(0,t-d-l-r);
+   const label=new Date(n.sleep_date+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'2-digit'});
+   return `<div class="sleep-history-row"><span>${label}</span><div class="sleep-history-bar"><i class="deep" style="width:${d/t*100}%"></i><i class="light" style="width:${l/t*100}%"></i><i class="rem" style="width:${r/t*100}%"></i><i class="other" style="width:${other/t*100}%"></i></div><span>${(t/60).toFixed(1)} h</span></div>`;
+ }).join('');
+ if(cloudSleep.length>=7){
+   const seven=cloudSleep.slice(0,7),durations=seven.map(x=>Number(x.total_sleep_min)||0),avg=durations.reduce((a,b)=>a+b,0)/durations.length;
+   const variance=durations.reduce((s,x)=>s+(x-avg)**2,0)/durations.length,sd=Math.sqrt(variance);
+   const starts=seven.filter(x=>x.sleep_start).map(x=>circDistMin(localTime(x.sleep_start),'05:00'));
+   const avgStartDev=starts.length?starts.reduce((a,b)=>a+b,0)/starts.length:null;
+   const deepPct=seven.reduce((s,x)=>s+percent(x.deep_sleep_min,x.total_sleep_min),0)/seven.length;
+   const remPct=seven.reduce((s,x)=>s+percent(x.rem_sleep_min,x.total_sleep_min),0)/seven.length;
+   const deepNotes=[`Últimas 7 noches: media ${fmtMin(avg)}; variación típica ±${Math.round(sd)} min.`,avgStartDev!=null?`Regularidad de inicio: desviación media ${Math.round(avgStartDev)} min respecto a las 05:00.`:'',`Promedio de fases registradas: profundo ${deepPct.toFixed(0)}% · REM ${remPct.toFixed(0)}%.`].filter(Boolean);
+   if(cloudSleep.length>=14){const prev=cloudSleep.slice(7,14).map(x=>Number(x.total_sleep_min)||0),prevAvg=prev.reduce((a,b)=>a+b,0)/prev.length;deepNotes.push(`Frente a las 7 noches anteriores: ${avg>=prevAvg?'+':''}${Math.round(avg-prevAvg)} min de sueño por noche.`);}
+   const hrv=seven.filter(x=>x.avg_hrv!=null).map(x=>Number(x.avg_hrv));if(hrv.length>=5)deepNotes.push(`Baseline HRV de esta semana: ${Math.round(hrv.reduce((a,b)=>a+b,0)/hrv.length)} ms.`);
+   const rhr=seven.filter(x=>x.resting_hr!=null).map(x=>Number(x.resting_hr));if(rhr.length>=5)deepNotes.push(`FC reposo media de esta semana: ${Math.round(rhr.reduce((a,b)=>a+b,0)/rhr.length)} ppm.`);
+   document.getElementById('sleepDeepTitle').textContent='Tu patrón · 7 noches';
+   document.getElementById('sleepInsights').innerHTML=deepNotes.map(x=>`<div class="insight">${x}</div>`).join('');
+   deepStudy.style.display='block';
+ }else deepStudy.style.display='none';
+ document.getElementById('todaySleep').textContent=(total/60).toFixed(1)+' h';document.getElementById('todaySleepWindow').textContent=`${start} → ${end}`;
 }
 function readiness(){return readinessModel({sleep:cloudSleep,checkins:cloudCheckins,activities:S.activities,injuries:cloudInjuries});}
 function renderReadiness(){const r=readiness(),el=document.getElementById('readinessScore');if(!el)return;el.textContent=r.score+'/100';document.getElementById('readinessWhy').textContent=r.text}
@@ -740,7 +808,7 @@ function renderCoachTasks(){
  const checked=cloudCheckins.some(x=>x.checkin_date===today);
  if(!checked)tasks.push({icon:'🧭',title:'Haz el test diario',text:'30 segundos para que readiness y correlaciones tengan contexto.',action:`navTo('checkin')`,label:'Responder'});
  const sleepRecent=cloudSleep.some(x=>Math.abs((new Date(x.sleep_date+'T12:00:00')-new Date(today+'T12:00:00'))/86400000)<=1);
- if(!sleepRecent)tasks.push({icon:'🌙',title:'Falta el sueño reciente',text:'Sin sueño/HRV el readiness es menos fiable.',action:`navTo('sueno')`,label:'Añadir'});
+ if(!sleepRecent)tasks.push({icon:'🌙',title:'Falta el sueño reciente',text:'Sin sueño/HRV el readiness es menos fiable. Abre Sueño y sincroniza Health Connect si la sincronización automática no lo recupera.',action:`navTo('sueno')`,label:'Ver sueño'});
  if(now.getDay()===0&&!S.weights.some(w=>w.date===today))tasks.push({icon:'⚖️',title:'Hoy toca pesarse',text:'En condiciones parecidas: al levantarte y antes de comer.',action:`navTo('registro');document.getElementById('weightKg').focus()`,label:'Registrar'});
  const pending=cloudGoals.filter(g=>g.status==='pending').slice(0,2);
  pending.forEach(g=>tasks.push({icon:'🎯',title:'Misión pendiente',text:g.prompt,goal:g}));
@@ -764,32 +832,49 @@ window.answerGoal=async function(id,status){
  await loadCloud();
 }
 
-window.syncHealthConnect=async function(){
+let healthConnectSilent=false;
+let autoHealthConnectQueued=false;
+function queueAutoHealthConnectSync(){
+ if(!currentUser||autoHealthConnectQueued)return;
+ if(!(window.TrainingLabAndroid&&typeof window.TrainingLabAndroid.syncHealthConnect==='function'))return;
+ const key='traininglab-hc-auto:'+currentUser.id;
+ if(sessionStorage.getItem(key))return;
+ sessionStorage.setItem(key,String(Date.now()));
+ autoHealthConnectQueued=true;
+ setTimeout(()=>{autoHealthConnectQueued=false;window.syncHealthConnect({silent:true,auto:true}).catch(e=>window.TrainingLab.report('Health Connect automático',e));},500);
+}
+window.syncHealthConnect=async function(options={}){
  if(!currentUser)return alert('Inicia sesión primero: Health Connect necesita sincronizar los datos con tu usuario.');
  const {data:{session}}=await supabase.auth.getSession();
  if(!session?.access_token)return alert('La sesión ha caducado. Vuelve a iniciar sesión.');
  if(window.TrainingLabAndroid && typeof window.TrainingLabAndroid.syncHealthConnect==='function'){
-   try{
-     window.TrainingLabAndroid.syncHealthConnect(session.access_token,SUPABASE_URL);
-     const el=document.getElementById('syncSources');if(el)el.insertAdjacentHTML('beforeend','<div class="notice" style="margin-top:8px">Solicitando permisos y leyendo Health Connect…</div>');
-   }catch(e){alert('No pude iniciar Health Connect: '+e.message)}
- }else{
-   alert('Health Connect solo puede leerse desde Android. La web está preparada, pero necesitas abrirla dentro del companion Training Lab Android. El proyecto Android viene incluido en el paquete GitHub.');
+   healthConnectSilent=!!options?.silent;
+   const sleepStatus=document.getElementById('sleepSyncStatus');if(sleepStatus)sleepStatus.textContent=options?.auto?'Sincronizando Health Connect automáticamente…':'Sincronizando Health Connect…';
+   try{window.TrainingLabAndroid.syncHealthConnect(session.access_token,SUPABASE_URL);}
+   catch(e){healthConnectSilent=false;if(sleepStatus)sleepStatus.textContent='No se pudo iniciar la sincronización.';if(!options?.silent)alert('No pude iniciar Health Connect: '+e.message);else window.TrainingLab.report('Health Connect',e);}
+ }else if(!options?.silent){
+   alert('Health Connect solo puede leerse desde la APK Training Lab Android. En el navegador normal no existe el puente nativo.');
  }
 }
 window.healthConnectSyncFinished=async function(payload){
  let info={};try{info=typeof payload==='string'?JSON.parse(payload):payload||{}}catch{}
+ const silent=healthConnectSilent;healthConnectSilent=false;
  await loadCloud();
- alert(`Health Connect sincronizado: ${info.sleep??0} sueños y ${info.activities??0} entrenamientos.`);
+ const el=document.getElementById('sleepSyncStatus');if(el)el.textContent=`Health Connect sincronizado · ${info.sleep??0} sueño(s) · ${info.activities??0} entrenamiento(s)`;
+ if(!silent)alert(`Health Connect sincronizado: ${info.sleep??0} sueños y ${info.activities??0} entrenamientos.`);
 }
-window.healthConnectSyncError=function(message){alert('Health Connect: '+message)}
+window.healthConnectSyncError=function(message){
+ const silent=healthConnectSilent;healthConnectSilent=false;
+ const el=document.getElementById('sleepSyncStatus');if(el)el.textContent='Health Connect: '+message;
+ if(!silent)alert('Health Connect: '+message);else window.TrainingLab.report('Health Connect automático',message);
+}
 
 function renderSyncSources(){
  const el=document.getElementById('syncSources');if(!el)return;
  const hc=cloudSync.find(x=>x.source==='health_connect'),coros=cloudSync.find(x=>x.source==='coros');
  const fmt=x=>x?.last_sync_at?new Date(x.last_sync_at).toLocaleString('es-ES'):'sin sincronizar';
  el.innerHTML=`<div class="source-row"><span><i class="status-dot ${hc?'ok':'wait'}"></i>Health Connect</span><span class="muted small">${hc?'última '+fmt(hc):'bridge Android pendiente'}</span></div><div class="source-row"><span><i class="status-dot ${coros?'ok':'wait'}"></i>COROS</span><span class="muted small">${coros?'última '+fmt(coros):'autorización pendiente'}</span></div>`;
- const sleepStatus=document.getElementById('sleepSyncStatus');if(sleepStatus)sleepStatus.textContent=hc?`Health Connect: sincronizado ${fmt(hc)}`:'Health Connect: endpoint listo; falta instalar/construir el bridge Android.';
+ const sleepStatus=document.getElementById('sleepSyncStatus');if(sleepStatus){const d=hc?.details||{};sleepStatus.textContent=hc?`Health Connect · última ${fmt(hc)} · ${d.sleep??0} sueño(s) · ${d.activities??0} entrenamiento(s)`:'Health Connect sin sincronizar todavía.';}
 }
 function renderWeeklyReportFromCloud(){
  const el=document.getElementById('weeklyReport');if(!el)return;
@@ -856,7 +941,7 @@ function renderV5(){
 
 function renderAll(){renderToday();renderWeek();renderHistory();updateProgress();renderLatestAnalysis();renderV5()}
 document.getElementById('actDate').value=iso();document.getElementById('weightDate').value=iso();
-document.getElementById('sleepDate').value=iso();document.getElementById('injuryDate').value=iso();
+document.getElementById('injuryDate').value=iso();
 document.getElementById('allRecipes').innerHTML=recipes.map(recipeCard).join('');
 renderAll();setInterval(renderToday,30000);
 
