@@ -1,5 +1,4 @@
 <resources>
     <string name="app_name">Training Lab</string>
-    <!-- Sustituye esta URL cuando publiques GitHub Pages -->
-    <string name="training_lab_url">https://TU_USUARIO.github.io/training-lab/</string>
+    <string name="training_lab_url">https://bobruso.github.io/Training-lab/</string>
 </resources>
