@@ -19,7 +19,7 @@
     </div>
     <div class="actions" id="authActions">
       <input id="authEmail" type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px">
-      <button class="btn" id="loginBtn">Enviar enlace</button>
+      <button class="btn" id="loginBtn" onclick="sendTrainingLabMagicLink()">Enviar enlace</button>
     </div>
   </div>
 </div>
@@ -302,6 +302,46 @@
  <button class="on" data-page="hoy">HOY</button><button data-page="semana">SEMANA</button><button data-page="comer">COMER</button><button data-page="recuperacion">RECUP.</button><button data-page="progreso">PROGRESO</button>
 </div>
 
-<script type="module" src="./app.js"></script><script>if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js")</script>
+<script>
+window.sendTrainingLabMagicLink = async function () {
+  const emailEl = document.getElementById('authEmail');
+  const btn = document.getElementById('loginBtn');
+  const detail = document.getElementById('cloudDetail');
+  const email = (emailEl?.value || '').trim();
+  if (!email) { alert('Escribe tu email.'); return; }
+  const SUPABASE_URL = 'https://nnpvklaxhomarxszlclt.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd';
+  const redirect = location.origin + location.pathname;
+  const old = btn?.textContent;
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+    if (detail) detail.textContent = 'Solicitando enlace de acceso…';
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/otp?redirect_to=${encodeURIComponent(redirect)}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, create_user: true })
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      let msg = body;
+      try { const j = JSON.parse(body); msg = j.msg || j.message || j.error_description || body; } catch (_) {}
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    if (detail) detail.textContent = `Enlace enviado a ${email}. Revisa también spam/promociones.`;
+    alert('Te he enviado el enlace de acceso. Revisa tu correo.');
+  } catch (err) {
+    console.error('Training Lab login fallback:', err);
+    if (detail) detail.textContent = 'Error al enviar el enlace: ' + (err?.message || err);
+    alert('No se pudo enviar el enlace: ' + (err?.message || err));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = old || 'Enviar enlace'; }
+  }
+};
+</script>
+<script type="module" src="./app.js?v=6.1"></script><script>if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js")</script>
 </body>
 </html>
