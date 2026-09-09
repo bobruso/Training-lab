@@ -100,3 +100,5 @@ h1,h2,h3,p{margin-top:0}h2{letter-spacing:-.03em}.muted{color:var(--muted)}
 @media(max-width:700px){nav{display:flex!important;overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding:8px 0}nav button{flex:0 0 auto;min-height:44px}.actions{flex-wrap:wrap}#authActions input{min-width:0!important;width:100%}.card{min-width:0}pre{max-width:100%}}
 [hidden]{display:none!important}
 :focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+#authActions { flex-wrap:wrap; max-width:100%; }
+#authActions input { min-width:0; width:220px; max-width:100%; background:#0d1316; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:10px; }

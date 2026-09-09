@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=2e0f003cb8';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=2e0f003cb8';
-import { createClient } from "./vendor/supabase.js?v=2e0f003cb8";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=4f666878a1';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=4f666878a1';
+import { createClient } from "./vendor/supabase.js?v=4f666878a1";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -389,13 +389,13 @@ function setCloudUI(){
  if(currentUser){
    status.textContent='Sesión iniciada';
    detail.textContent=currentUser.email+' · proyecto Training Lab';
-   actions.innerHTML='<button class="btn alt" id="logoutBtn">Cerrar sesión</button>';
+   actions.innerHTML=window.TrainingLab.authForm(true)+'<button class="btn alt" id="logoutBtn">Cerrar sesión</button>';
    document.getElementById('logoutBtn').onclick=async()=>{const {error}=await supabase.auth.signOut();if(error){window.TrainingLab.report('Cerrar sesión',error);return;}location.reload();};
    document.getElementById('syncNotice').textContent='Datos sincronizados con Supabase. Puedes usar la misma cuenta desde móvil y PC.';
  }else{
    status.textContent='Modo local';
    detail.textContent='Tus datos se guardan en este navegador. Inicia sesión para sincronizar móvil y PC.';
-   actions.innerHTML='<input id="authEmail" aria-label="Email de acceso" required type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px"><button class="btn" id="loginBtn">Enviar enlace</button>';
+   actions.innerHTML=window.TrainingLab.authForm();
    
    document.getElementById('syncNotice').textContent='Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.';
  }
@@ -414,6 +414,20 @@ async function applySession(session){
  window.TrainingLab.update({authenticated:!!currentUser,email:currentUser?.email||null});
  if(currentUser){await ensureProfile();if(generation===authGeneration)await loadCloud();}
 }
+window.TrainingLab.passwordAuth=async(action,email,password)=>{
+ let result;
+ if(action==='signin')result=await supabase.auth.signInWithPassword({email,password});
+ else if(action==='signup')result=await supabase.auth.signUp({email,password,options:{emailRedirectTo:window.TrainingLab.config.redirect}});
+ else if(action==='recover')result=await supabase.auth.resetPasswordForEmail(email,{redirectTo:window.TrainingLab.config.redirect});
+ else if(action==='update')result=await supabase.auth.updateUser({password});
+ else throw new Error('Acción inválida');
+ if(result.error)throw result.error;
+ if(action==='signin'||(action==='signup'&&result.data.session))await applySession(result.data.session);
+ if(action==='update')return 'Contraseña guardada. Ya puedes entrar con email y contraseña en la APK.';
+ if(action==='recover')return 'Si la cuenta existe, recibirás un correo para recuperar el acceso. Ábrelo en el navegador y usa Guardar contraseña; después entra en la APK con esa contraseña.';
+ if(action==='signup'&&!result.data.session)return 'Revisa tu correo para confirmar la cuenta. Si ya tenías cuenta, recupera el acceso o guarda una contraseña desde tu sesión abierta. Después entra con email y contraseña.';
+ return 'Sesión iniciada en este dispositivo.';
+};
 async function initAuth(){
  try{
    const {data,error}=await supabase.auth.getSession();if(error)throw error;

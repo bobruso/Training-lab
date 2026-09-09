@@ -31,3 +31,7 @@ Pendiente: validar paginación de todos los registros, deduplicación entre apps
 ## Descargar el APK de prueba
 
 En GitHub → Actions → Training Lab quality, abrir una ejecución correcta y descargar el artefacto `training-lab-android-debug`. Extraer el ZIP e instalar `app-debug.apk` en Android. El artefacto caduca a los 14 días; no se añade el binario a Git. Es una compilación de prueba firmada con la clave debug del runner: futuras compilaciones pueden requerir desinstalar la anterior (se pierde la sesión local, no los datos ya sincronizados en Supabase).
+
+## Acceso Android por contraseña
+
+Si el enlace abre el navegador y la APK permanece local, usar email/contraseña. Desde una sesión web ya abierta, Guardar contraseña establece una contraseña en la misma cuenta; después entrar en la APK. No es necesario reinstalarla: carga la web actualizada. Registro y recuperación pueden requerir correo y estar limitados por Supabase; no repetir peticiones durante el límite.

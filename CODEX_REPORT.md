@@ -112,3 +112,7 @@ El usuario confirma recepción y retorno del magic link en web. Se ejecutó el h
 ## FIT sin sesión
 
 Se permite analizar en el navegador sin iniciar sesión. El resultado se muestra sin persistir en cuenta; con sesión continúa el flujo privado de Storage y Edge Function. Parser local generado desde los cálculos del handler existente mediante `node scripts/build-fit-local.mjs`; regenerarlo cuando cambie `analyze-fit` y ejecutar después `npm run release`. El bundle forma parte del cache versionado. Validación: 20 pruebas de navegador (móvil/escritorio), 12 pruebas Node y FIT privado real con métricas idénticas al handler. Backend y RLS sin cambios.
+
+## Acceso con contraseña
+
+Añadidos Entrar, Crear cuenta, Olvidé mi contraseña y Guardar contraseña para sesiones abiertas. Las cuentas que usaban magic link pueden establecer contraseña desde su sesión existente sin perder datos. El acceso usa signInWithPassword y conserva la sesión del WebView; no depende del retorno desde el correo. Registro y recuperación usan redirect web, donde se puede confirmar/guardar contraseña y después entrar en Android. Supabase settings verificados: email habilitado, registro habilitado, confirmación email obligatoria. No se ha cambiado Auth, RLS ni límites de correo. Los límites 429 siguen aplicándose y se explican; no se enviaron correos en QA. 24 pruebas Playwright y 12 Node pasan, con login/registro/recuperación/password update simulados y persistencia al recargar. Pendiente prueba real de contraseña en el teléfono.
