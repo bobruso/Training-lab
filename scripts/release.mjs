@@ -7,11 +7,13 @@ if(process.argv.includes('--vendor')){
  await build({stdin:{contents:"export { createClient } from './node_modules/@supabase/supabase-js/dist/index.mjs';",resolveDir:process.cwd()},tsconfigRaw:{compilerOptions:{}},bundle:true,format:'esm',platform:'browser',minify:true,outfile:'vendor/supabase.js',legalComments:'eof'});
 }
 const files=['app.js','domain.js','runtime.js','styles.css','vendor/supabase.js','manifest.webmanifest','privacy.html'];
+const app=readFileSync('app.js','utf8').replaceAll('\r\n','\n').replace(/(\.\/(?:domain\.js|vendor\/supabase\.js))\?v=[\w.-]+/g,'$1');
 let html=readFileSync('index.html','utf8').replaceAll('\r\n','\n').replace(/\?v=[\w.-]+/g,'').replace(/content="v6\.2 · build [^"]*"/,'content="BUILD"');
 const hash=createHash('sha256').update(html);
-for(const file of files)hash.update(readFileSync(file,'utf8').replaceAll('\r\n','\n'));
+for(const file of files)hash.update(file==='app.js'?app:readFileSync(file,'utf8').replaceAll('\r\n','\n'));
 hash.update(readFileSync('scripts/sw-template.js','utf8').replaceAll('\r\n','\n'));
 const id=hash.digest('hex').slice(0,10);
+writeFileSync('app.js',app.replace(/(\.\/(?:domain\.js|vendor\/supabase\.js))(?=['"])/g,`$1?v=${id}`));
 html=html.replace('content="BUILD"',`content="v6.2 · build ${id}"`).replace(/(\.\/(?:app\.js|runtime\.js|styles\.css))(?=")/g,`$1?v=${id}`);
 writeFileSync('index.html',html);
 const sw=readFileSync('scripts/sw-template.js','utf8').replaceAll('__BUILD__',id);
