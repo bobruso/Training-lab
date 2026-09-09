@@ -1,0 +1,40 @@
+name: Training Lab COROS share v8.0
+
+on:
+  push:
+    paths:
+      - '.github/workflows/share-fit-v80.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Apply patch
+        run: python3 tools/patch_share_fit_v80.py
+      - name: Validate web
+        run: npm ci && npm run check && node --test tests/*.test.mjs
+      - name: Validate Android
+        run: ./gradlew :app:assembleDebug :app:lintDebug --no-daemon
+        working-directory: android-companion
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html runtime.js app.js styles.css service-worker.js android-companion/app/src/main/AndroidManifest.xml android-companion/app/src/main/java/com/traininglab/companion/MainActivity.kt android-companion/app/build.gradle.kts
+          git commit -m "Receive COROS FIT shares and remove manual activity entry" || exit 0
+          git push origin HEAD:main
