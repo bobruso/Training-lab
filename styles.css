@@ -299,3 +299,22 @@ body[data-home-mode="recovery"] #homeModeBanner{--section-accent:#7de3aa}
 .coros-response{display:grid;gap:12px;margin-top:12px}.activity-headline-card{background:radial-gradient(circle at 92% 10%,rgba(217,255,99,.12),transparent 34%),linear-gradient(180deg,#192226,#12181b)}.activity-headline-card h2{font-size:clamp(27px,5vw,43px);line-height:1.02;margin:5px 0 8px;max-width:850px}.activity-headline-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.activity-headline-chips span{font-size:10px;font-weight:850;border:1px solid var(--line);background:#111719;border-radius:999px;padding:7px 9px}.postwork-grid{margin:0}.postwork-card h3,.plan-mutated-card h3,.adaptive-analysis-card h3{margin:4px 0 10px}.adaptive-step{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}.adaptive-step:last-child{border-bottom:0}
 #hoy>.home-activity-now:first-child{margin-top:0}
 @media(max-width:700px){.coros-home-head{align-items:center}.coros-home-head .btn{font-size:10px;padding:8px 9px}.coros-activity-card{padding:15px;border-radius:18px}.coros-card-main{grid-template-columns:1fr 84px}.coros-load-ring{width:78px;height:78px;padding:6px}.coros-load-ring span{font-size:18px}.coros-primary{font-size:44px}.coros-stat-grid{grid-template-columns:repeat(2,1fr);gap:10px 8px}.activity-headline-card h2{font-size:29px}}
+
+
+/* home-v79: activity feed is the Home entry point */
+#homeModeBanner{display:none!important}
+.home-legacy-today{display:none!important}
+#hoy>.home-activity-now{margin-top:0}
+.home-activity-list{display:grid;gap:12px}
+.home-activity-item{min-width:0}
+.home-activity-item .coros-activity-card{width:100%}
+.home-activity-item:not(.is-latest) .coros-activity-card{filter:saturate(.88);opacity:.94}
+.home-activity-item:not(.is-latest) .coros-primary{font-size:clamp(30px,6vw,46px)}
+.postwork-grid{align-items:stretch}
+@media(max-width:700px){
+ #hoy>.home-activity-now{margin-top:0}
+ .coros-home-head{align-items:flex-start}
+ .coros-home-head .btn{padding:9px 10px}
+ .home-activity-list{gap:10px}
+ .postwork-grid{grid-template-columns:1fr}
+}

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v7.8 · build coros78">
-<script src="./runtime.js?v=20260910coros78" defer></script>
+<meta name="build" content="v7.9 · build home79">
+<script src="./runtime.js?v=20260910home79" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260910coros78">
+<link rel="stylesheet" href="./styles.css?v=20260910home79">
 </head>
 <body>
 <div class="app">
@@ -35,38 +35,28 @@
 
  <section class="page on" id="hoy">
   <div id="homeActivityNow" class="home-activity-now coros-home" hidden>
-   <div class="coros-home-head"><div><div class="eyebrow">HOY · ACTIVIDAD DETECTADA</div><h2 id="homeActivityHeading">Tu actividad de hoy</h2></div><button class="btn alt" onclick="navTo('entrenos')">Ver detalles</button></div>
+   <div class="coros-home-head"><div><div class="eyebrow">ÚLTIMAS ACTIVIDADES</div><h2 id="homeActivityHeading">Tu actividad reciente</h2></div><button class="btn alt" onclick="navTo('entrenos')">Ver todas</button></div>
    <div id="homeRecentActivities" class="home-activity-list"></div>
    <div id="homeAdaptiveResponse" class="adaptive-response coros-response">
     <div class="card activity-headline-card">
       <div class="eyebrow">INFORME TRAINING LAB</div>
-      <h2 id="adaptiveResponseTitle">Analizando la sesión…</h2>
+      <h2 id="adaptiveResponseTitle">Analizando la última sesión…</h2>
       <p class="muted" id="adaptiveResponseText"></p>
       <div id="adaptiveHeadlineChips" class="activity-headline-chips"></div>
     </div>
-    <div class="grid g2 postwork-grid">
-      <div class="card postwork-card"><div class="eyebrow">AHORA</div><h3 id="adaptiveRecoveryTitle">Recuperación y movilidad</h3><div id="adaptiveRecovery"></div></div>
-      <div class="card postwork-card"><div class="eyebrow">DESPUÉS</div><h3>Comida e hidratación</h3><div id="adaptiveNutrition"></div></div>
+    <div class="grid g3 postwork-grid">
+      <div class="card postwork-card"><div class="eyebrow">RECUPERACIÓN</div><h3 id="adaptiveRecoveryTitle">Movilidad y vuelta a la calma</h3><div id="adaptiveRecovery"></div></div>
+      <div class="card postwork-card"><div class="eyebrow">ALIMENTACIÓN</div><h3>Comida e hidratación</h3><div id="adaptiveNutrition"></div></div>
+      <div class="card postwork-card"><div class="eyebrow">SUEÑO</div><h3>Cómo favorecer la recuperación</h3><div id="adaptiveSleepAdvice"></div></div>
     </div>
-    <div class="card plan-mutated-card"><div class="eyebrow">PLAN RECALCULADO</div><h3>Qué cambia después de esta actividad</h3><div id="adaptivePlanChanges"></div></div>
+    <div class="card plan-mutated-card"><div class="eyebrow">PLAN RECALCULADO</div><h3>Qué cambia a partir de lo que has hecho</h3><div id="adaptivePlanChanges"></div></div>
     <div class="card adaptive-analysis-card">
       <div class="eyebrow">COMPARADO CONTIGO</div><h3 id="adaptiveAnalysisTitle">Informe de la sesión</h3><div id="adaptiveAnalysis"></div>
     </div>
    </div>
   </div>
-  <div class="card hero">
-   <div class="eyebrow">Ahora</div>
-   <div class="today" id="todayText">Hoy es...</div>
-   <div class="clock" id="clock">--:--</div>
-   <p class="muted" id="mealNow">Calculando ingesta...</p>
-   <div class="pills">
-    <span class="pill" id="weeklyLoad">Carga semanal</span>
-    <span class="pill" id="proteinPill">Proteína: 130 g</span>
-    <span class="pill" id="carbPill">HC: —</span>
-    <span class="pill" id="fatiguePill">Fatiga: —</span>
-   </div>
-  </div>
-
+  <!-- Legacy render targets kept hidden so the old daily renderer cannot break the app. -->
+  <div class="home-legacy-today" hidden aria-hidden="true"><span id="todayText"></span><span id="clock"></span><span id="mealNow"></span><span id="weeklyLoad"></span><span id="proteinPill"></span><span id="carbPill"></span><span id="fatiguePill"></span></div>
   <div class="section grid g3">
    <div class="card metric readiness-card"><div class="k">Estado para entrenar</div><div class="v" id="readinessScore">—</div><div class="readiness-label" id="readinessLabel">Calculando...</div><div class="muted" id="readinessWhy">Combina sueño, recuperación, carga reciente y cómo te encuentras.</div><details class="readiness-help"><summary>¿Qué significa?</summary><p class="small muted">Es una estimación orientativa de lo preparado que estás hoy para entrenar. No es una medición médica. Cuanto más alto, más favorable es el contexto para meter carga; cuanto más bajo, más conviene ajustar o recuperar.</p><div id="readinessBreakdown"></div></details></div>
    <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
@@ -416,6 +406,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260910coros78"></script>
+<script type="module" src="./app.js?v=20260910home79"></script>
 </body>
 </html>

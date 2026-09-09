@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910coros78';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910coros78';
-import { createClient } from "./vendor/supabase.js?v=20260910coros78";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910home79';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910home79';
+import { createClient } from "./vendor/supabase.js?v=20260910home79";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -1316,26 +1316,51 @@ function analysisForActivity(a){
  return out;
 }
 function recoveryTitleFor(a){return a.type==='run'?'Vuelta a la calma y movilidad post-carrera':a.type==='football'?'Descarga post-partido':a.type==='gym'?'Recuperación post-fuerza':'Recuperación post-actividad';}
+function homeRecentActivityRows(limit=3){
+ return [...S.activities]
+  .filter(a=>['run','football','gym','walk'].includes(a.type))
+  .sort((a,b)=>new Date(b.started_at||b.date+'T12:00:00')-new Date(a.started_at||a.date+'T12:00:00'))
+  .slice(0,limit);
+}
+function sleepAdviceForActivity(a,load){
+ const rows=uniqueNights(cloudSleep||[]),night=rows[0]||null,out=[];
+ const mins=Number(night?.total_sleep_min||0);
+ if(mins){
+   const h=Math.floor(mins/60),m=Math.round(mins%60);
+   out.push(`Último sueño registrado: ${h} h ${String(m).padStart(2,'0')} min.`);
+   if(mins<360)out.push('La última noche fue corta. Hoy la prioridad es no añadir carga innecesaria y proteger una noche completa.');
+   else if(mins<420)out.push('Vienes de una noche algo corta: intenta que la recuperación de esta sesión no se apoye en recortar más sueño.');
+   else if(mins>=450)out.push('La duración de la última noche fue favorable. Mantén tu horario habitual y deja que el sueño haga parte del trabajo de recuperación.');
+   else out.push('La duración de la última noche fue razonable. Mantén una ventana de sueño completa dentro de tu horario habitual.');
+ }else out.push('Cuando Health Connect aporte el próximo sueño, Training Lab cruzará esta sesión con duración y fases para ajustar la lectura de recuperación.');
+ if(load.level==='alta')out.push('Por la carga estimada alta de esta actividad, esta noche gana importancia: evita encadenar otra sesión dura antes de comprobar cómo recuperas.');
+ else if(load.level==='moderada')out.push('Carga moderada: una noche completa y tu horario habitual deberían tener más prioridad que añadir entrenamiento extra.');
+ else out.push('Carga estimada baja: no hace falta “compensar” con más ejercicio; deja que cuente como parte de la semana.');
+ return out;
+}
 function renderAdaptiveActivityResponse(){
  const wrap=document.getElementById('homeActivityNow'),list=document.getElementById('homeRecentActivities');if(!wrap||!list)return;
- const a=latestTodayActivity();
- if(!a){wrap.hidden=true;list.innerHTML='';return;}
- wrap.hidden=false;list.innerHTML=activityCard(a);
+ const recent=homeRecentActivityRows(3);
+ if(!recent.length){wrap.hidden=true;list.innerHTML='';return;}
+ const a=recent[0],isToday=a.date===iso();
+ wrap.hidden=false;
+ list.innerHTML=recent.map((row,i)=>`<div class="home-activity-item ${i===0?'is-latest':''}">${activityCard(row)}</div>`).join('');
  const report=activityReport(a),r=recoveryForActivity(a),plan=adaptivePlan(new Date()),c=counts(new Date()),runTarget=weekRunTarget(new Date());
- const heading=document.getElementById('homeActivityHeading');if(heading)heading.textContent=`Tu ${activityLabel(a.type).toLowerCase()} de hoy`;
+ const heading=document.getElementById('homeActivityHeading');if(heading)heading.textContent=isToday?'Actividad de hoy y anteriores':'Tus últimas actividades';
  document.getElementById('adaptiveResponseTitle').textContent=report.title;
- document.getElementById('adaptiveResponseText').textContent=report.text;
+ document.getElementById('adaptiveResponseText').textContent=isToday?report.text:`Esta es tu actividad más reciente. ${report.text} El plan de hoy se calcula desde el historial real, no desde una agenda rígida.`;
  const chips=document.getElementById('adaptiveHeadlineChips');if(chips)chips.innerHTML=report.chips.map(x=>`<span>${escapeHtml(x)}</span>`).join('');
  const rt=document.getElementById('adaptiveRecoveryTitle');if(rt)rt.textContent=recoveryTitleFor(a);
  document.getElementById('adaptiveRecovery').innerHTML=r.recovery.map(x=>`<div class="adaptive-step">${escapeHtml(x)}</div>`).join('');
  document.getElementById('adaptiveNutrition').innerHTML=r.nutrition.map(x=>`<div class="adaptive-step">${escapeHtml(x)}</div>`).join('');
+ const sleep=document.getElementById('adaptiveSleepAdvice');if(sleep)sleep.innerHTML=sleepAdviceForActivity(a,report.load).map(x=>`<div class="adaptive-step">${escapeHtml(x)}</div>`).join('');
  const future=[];
- future.push(`<div class="notice"><b>Hoy:</b> ${escapeHtml(plan.title)}<br><span class="small">${escapeHtml(plan.reason)}</span></div>`);
- future.push(`<div class="adaptive-step"><b>Semana real:</b> ${c.run}/${runTarget} running · ${c.football} fútbol · ${c.gym} fuerza. La sesión detectada ya cuenta.</div>`);
- for(let i=1;i<=2;i++){const d=addDays(new Date(),i),p=adaptivePlan(d);future.push(`<div class="adaptive-step"><b>${DAYS[d.getDay()]}:</b> ${escapeHtml(p.title)}</div>`);}
+ future.push(`<div class="notice"><b>Ahora:</b> ${escapeHtml(plan.title)}<br><span class="small">${escapeHtml(plan.reason)}</span></div>`);
+ future.push(`<div class="adaptive-step"><b>Semana real:</b> ${c.run}/${runTarget} running · ${c.football} fútbol · ${c.gym} fuerza. Las actividades registradas ya cuentan.</div>`);
+ for(let i=1;i<=2;i++){const d=addDays(new Date(),i),next=adaptivePlan(d);future.push(`<div class="adaptive-step"><b>${DAYS[d.getDay()]}:</b> ${escapeHtml(next.title)}</div>`);}
  document.getElementById('adaptivePlanChanges').innerHTML=future.join('');
  const analysis=analysisForActivity(a);
- document.getElementById('adaptiveAnalysisTitle').textContent=`Cómo ha ido esta ${activityLabel(a.type).toLowerCase()}`;
+ document.getElementById('adaptiveAnalysisTitle').textContent=isToday?`Cómo ha ido esta ${activityLabel(a.type).toLowerCase()}`:`Cómo fue tu última ${activityLabel(a.type).toLowerCase()}`;
  document.getElementById('adaptiveAnalysis').innerHTML=analysis.map(x=>`<div class="insight">${escapeHtml(x)}</div>`).join('');
 }
 function renderHomeActivities(){renderAdaptiveActivityResponse();}
@@ -1398,33 +1423,9 @@ function ensureHomeModeBanner(){
 }
 function reorderHomeForContext(){
  const hoy=document.getElementById('hoy');if(!hoy)return;
- const mode=homeContextMode(),banner=ensureHomeModeBanner();
- document.body.dataset.homeMode=mode.key;
- const label=document.getElementById('homeModeLabel'),title=document.getElementById('homeModeTitle'),text=document.getElementById('homeModeText');
- if(label)label.textContent=mode.label;if(title)title.textContent=mode.title;if(text)text.textContent=mode.text;
+ document.getElementById('homeModeBanner')?.remove();
  const activity=document.getElementById('homeActivityNow');
- const hero=hoy.querySelector(':scope > .hero');
- const smart=hoy.querySelector(':scope > .smart-home-card');
- const decision=hoy.querySelector('.smart-decision-card')?.closest(':scope > .section')||hoy.querySelector('.smart-decision-card')?.parentElement;
- const match=document.getElementById('matchDayPanel');
- const metric=hero?.nextElementSibling?.classList?.contains('grid')?hero.nextElementSibling:hoy.querySelector(':scope > .section.grid.g3');
- const moveAfter=(node,after)=>{if(node&&after&&node!==after)after.after(node)};
- hoy.prepend(banner);
- if(mode.key==='post'){
-   moveAfter(activity,banner);moveAfter(smart,activity||banner);moveAfter(metric,smart||activity||banner);moveAfter(decision,metric||smart||activity||banner);moveAfter(hero,decision||metric||smart||activity||banner);
- }else if(mode.key==='prematch'){
-   if(match&&match.style.display!=='none')moveAfter(match,banner);
-   moveAfter(smart,(match&&match.style.display!=='none')?match:banner);moveAfter(decision,smart||banner);moveAfter(metric,decision||smart||banner);moveAfter(activity,metric||decision||smart||banner);moveAfter(hero,activity||metric||decision||smart||banner);
- }else if(mode.key==='wake'){
-   moveAfter(metric,banner);moveAfter(smart,metric||banner);moveAfter(decision,smart||metric||banner);moveAfter(activity,decision||smart||metric||banner);moveAfter(hero,activity||decision||smart||metric||banner);
- }else if(mode.key==='recovery'){
-   moveAfter(smart,banner);moveAfter(metric,smart||banner);moveAfter(activity,metric||smart||banner);moveAfter(decision,activity||metric||smart||banner);moveAfter(hero,decision||activity||metric||smart||banner);
- }else{
-   moveAfter(hero,banner);moveAfter(metric,hero||banner);moveAfter(smart,metric||hero||banner);moveAfter(decision,smart||metric||hero||banner);moveAfter(activity,decision||smart||metric||hero||banner);
- }
- const todayActivity=latestTodayActivity(),activityFirst=document.getElementById('homeActivityNow');
- if(todayActivity&&activityFirst&&!activityFirst.hidden){hoy.prepend(activityFirst);activityFirst.after(banner);}
-
+ if(activity)hoy.prepend(activity);
 }
 
 function renderV5(){reorderHomeForContext();renderAdaptiveActivityResponse();
