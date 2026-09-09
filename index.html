@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.7 · build football67">
-<script src="./runtime.js?v=20260909football67" defer></script>
+<meta name="build" content="v6.8 · build report68">
+<script src="./runtime.js?v=20260909report68" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909football67">
+<link rel="stylesheet" href="./styles.css?v=20260909report68">
 </head>
 <body>
 <div class="app">
@@ -226,7 +226,17 @@
    <div class="card"><div class="eyebrow">Después</div><h3>Recuperación inmediata</h3><div id="footballPostAdvice" class="football-advice"></div></div>
   </div>
 
-  <div class="card section"><div class="eyebrow">Último partido</div><h2 id="footballLastTitle">Aún no hay partido registrado</h2><div id="footballLastSummary" class="muted">Cuando Health Connect o un FIT registre una pachanga, aparecerá aquí un resumen rápido de carga.</div></div>
+  <div class="card section match-report-card">
+   <div class="sectionhead"><div><div class="eyebrow">Parte del partido</div><h2 id="matchReportHeadline">Aún no hay partido analizado</h2></div><span class="muted" id="matchReportDate"></span></div>
+   <p id="matchReportVerdict" class="match-report-verdict muted">Cuando Health Connect o un FIT registre una pachanga, Training Lab interpretará sus métricas aquí.</p>
+   <div class="grid g4" id="matchReportMetrics" style="margin-top:16px"></div>
+   <div class="grid g2 section" style="margin-top:14px">
+    <div><div class="eyebrow">Lectura del partido</div><div id="matchReportInsights" class="match-report-insights"></div></div>
+    <div><div class="eyebrow">Comparado contigo</div><div id="matchReportComparison" class="match-report-insights"></div></div>
+   </div>
+   <div class="match-report-recovery" id="matchReportRecovery"></div>
+  </div>
+  <div class="card section"><div class="eyebrow">Último partido · datos brutos</div><h2 id="footballLastTitle">Aún no hay partido registrado</h2><div id="footballLastSummary" class="muted">Cuando Health Connect o un FIT registre una pachanga, aparecerá aquí un resumen rápido de carga.</div></div>
  </section>
 
  <section class="page" id="gym">
@@ -369,6 +379,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260909football67"></script>
+<script type="module" src="./app.js?v=20260909report68"></script>
 </body>
 </html>
