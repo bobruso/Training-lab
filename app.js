@@ -1,3 +1,4 @@
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js';
 import { createClient } from "./vendor/supabase.js";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
@@ -31,7 +32,7 @@ function actsOn(date){return S.activities.filter(a=>a.date===iso(date))}
 function hasDone(date,type){return actsOn(date).some(a=>a.type===type)}
 function footballScheduled(date){
  const k=iso(date); if(k in S.footballOverrides)return S.footballOverrides[k];
- return date.getDay()===1||date.getDay()===5;
+ return false; // Habitual days are not confirmed matches.
 }
 function fatigueFor(date){return Number(S.fatigue[iso(date)]||3)}
 function restSet(date){return !!S.restDays[iso(date)]}
@@ -49,32 +50,47 @@ function nextFootballWithin(date,days=1){
  for(let i=1;i<=days;i++){if(footballScheduled(addDays(date,i)))return true}return false;
 }
 function adaptivePlan(date=new Date()){
- const d=date.getDay(), c=counts(date), fatigue=fatigueFor(date), hasFootball=footballScheduled(date);
- const ready=readiness().score, rec=calcRecovery();
+ const d=date.getDay(), c=counts(date), fatigue=fatigueFor(date), hasFootball=footballScheduled(date), runTarget=weekRunTarget(date);
+ const ready=readiness().score, rec=calcRecovery(date);
  const legRecovery=(rec.cuadriceps+rec.isquios+rec.gemelos+rec.gluteo)/4;
  const lowerAreas=['isquios','cuadriceps','gemelo','tobillo','pie','rodilla','aductor','ingle','gluteo'];
  const activeLower=cloudInjuries.some(i=>i.status==='active'&&lowerAreas.includes(String(i.body_area).toLowerCase())&&Number(i.pain_score||0)>=4);
- if(restSet(date))return {title:'Descanso',reason:'Has marcado hoy como descanso. Se preservan las pachangas y se recolocan sesiones desplazables.',kind:'rest'};
+ const redFlag=cloudInjuries.some(i=>i.status==='active'&&(Number(i.pain_score)>=8||(Array.isArray(i.red_flags)&&i.red_flags.length)));
+ if(redFlag)return {title:hasFootball?'Fútbol confirmado · no entrenar con señales de alarma':'Pausa de entrenamiento',reason:'Hay señales de alarma registradas. Busca valoración sanitaria; el evento de fútbol se conserva en el calendario.',kind:'rest'};
+ if(actsOn(date).some(a=>['gym','run','football'].includes(a.type))&&!hasFootball)return {title:'Sesión completada · recuperar',reason:'El trabajo registrado ya cuenta. No añadimos otra sesión para llenar el día.',kind:'rest'};
+ if(restSet(date)&&!hasFootball)return {title:'Descanso',reason:'Has marcado hoy como descanso. Se preservan las pachangas y se recolocan sesiones desplazables.',kind:'rest'};
  if(hasFootball){
-   const gymOkay=fatigue<=3 && ready>=60 && !hasDone(date,'gym');
+   const gymOkay=c.gym<3 && fatigue<=3 && ready>=65 && !restSet(date) && !hasDone(date,'gym') && !hasDone(date,'football');
+   if(hasDone(date,'football'))return {title:'Pachanga completada · recuperación',reason:'El partido ya cuenta para la carga semanal. Prioriza comida y recuperación.',kind:'rest'};
    let reason=gymOkay?'Agrupamos carga: torso antes o separado varias horas y fútbol como trabajo intenso. Evitamos pierna dura.':'Hoy manda el fútbol. Reserva energía y evita añadir fuerza si la recuperación no acompaña.';
    if(ready<50)reason+=' Tu readiness está bajo: prioriza calentamiento, hidratación y recuperación posterior.';
    if(activeLower)reason+=' Hay una molestia activa de tren inferior: no ignores dolor creciente ni hagas sprints “de prueba”.';
    return {title:(gymOkay?'Torso + ':'')+'Pachanga',reason,kind:'football'};
  }
  if(ready<45||fatigue>=5)return {title:'Descanso / paseo suave',reason:`Readiness ${ready}/100 y/o fatiga alta: hoy interesa recuperar más que acumular carga.`,kind:'rest'};
- if(activeLower)return {title:'Torso + recuperación de piernas',reason:'Hay una molestia activa del tren inferior. Quitamos running y pierna hasta que la carga sea tolerable y prácticamente indolora.',kind:'gym'};
+ if(activeLower)return {title:c.gym<3?'Torso + recuperación de piernas':'Recuperación de piernas',reason:'Hay una molestia activa del tren inferior. Quitamos running y pierna hasta que la carga sea tolerable y prácticamente indolora.',kind:c.gym<3?'gym':'rest'};
  if(fatigue===4&&recentHard(date))return {title:'Recuperación',reason:'Vienes cargado de una sesión exigente. Mejor paseo, movilidad y sueño.',kind:'rest'};
- if(legRecovery<50)return {title:'Torso / core',reason:`Recuperación estimada de piernas ${Math.round(legRecovery)} %. Evitamos pierna dura y running hoy.`,kind:'gym'};
+ if(legRecovery<50)return {title:c.gym<3?'Torso / core':'Recuperación',reason:`Recuperación estimada de piernas ${Math.round(legRecovery)} %. Evitamos pierna dura y running hoy.`,kind:c.gym<3?'gym':'rest'};
+ if(hasDone(addDays(date,-1),'gym'))return c.run<runTarget&&!nextFootballWithin(date,1)&&!recentHard(date)&&legRecovery>=65?{title:'Rodaje fácil',reason:'Alternamos la fuerza de ayer con trabajo aeróbico suave.',kind:'run'}:{title:'Recuperación',reason:'Fuerza ayer: dejamos espacio antes de repetirla.',kind:'rest'};
  if(c.gym<3){
    if(nextFootballWithin(date,1))return {title:'Fuerza de torso',reason:'Falta fuerza semanal, pero mañana hay fútbol: torso sí; pierna dura no.',kind:'gym'};
-   if(c.run<2&&!recentHard(date)&&(d===3||d===6)&&legRecovery>=65&&ready>=65)return {title:'Fuerza + rodaje suave',reason:'Buen hueco: recuperación suficiente para combinar hipertrofia y base aeróbica sin añadir HIIT.',kind:'combo'};
+   if(c.run<runTarget&&!recentHard(date)&&(d===3||d===6)&&legRecovery>=65&&ready>=65)return {title:'Fuerza + rodaje suave',reason:'Buen hueco: recuperación suficiente para combinar hipertrofia y base aeróbica sin añadir HIIT.',kind:'combo'};
    if(d===3&&legRecovery>=65)return {title:'Pierna',reason:`Piernas al ${Math.round(legRecovery)} % y readiness ${ready}/100: buen momento para el estímulo principal de fuerza.`,kind:'gym'};
    return {title:'Fuerza full body/torso',reason:'La prioridad pendiente de esta semana es completar el volumen de fuerza sin comprometer el siguiente partido.',kind:'gym'};
  }
- if(c.run<2&&!recentHard(date)&&legRecovery>=60&&ready>=55)return {title:'Rodaje aeróbico suave 40–60 min',reason:'Fuerza semanal cubierta. Falta base aeróbica y las piernas están suficientemente recuperadas.',kind:'run'};
+ if(c.run<runTarget&&!recentHard(date)&&legRecovery>=60&&ready>=55)return {title:'Rodaje aeróbico suave 40–60 min',reason:'Fuerza semanal cubierta. Falta base aeróbica y las piernas están suficientemente recuperadas.',kind:'run'};
  return {title:'Descanso activo',reason:'Los objetivos principales están cubiertos o tu recuperación aconseja no añadir otra sesión.',kind:'rest'};
 }
+function weekRunTarget(date=new Date()){
+ const m=mondayOf(date);let football=0;
+ for(let i=0;i<7;i++){const d=addDays(m,i);if(footballScheduled(d)||hasDone(d,'football'))football++;}
+ return runningTarget(football);
+}
+window.setFootballFor=async function(day,value){
+ S.footballOverrides[day]=value;save();
+ if(currentUser){const {error}=await supabase.from('daily_status').upsert({user_id:currentUser.id,day,football_override:value},{onConflict:'user_id,day'});if(error)window.TrainingLab.report('Plan semanal',error);}
+ renderAll();
+};
 function loadLabel(plan){
  if(plan.kind==='football')return ['alta','350–425 g'];
  if(plan.kind==='combo')return ['media/alta','320–370 g'];
@@ -94,7 +110,7 @@ const recipes=[
  ['recena','Skyr + avena + fruta',28,46,8,'Proteína fácil antes de dormir.'],
  ['recena','Leche + plátano + tostada',20,58,10,'Sencillo si faltan calorías.']
 ];
-function mealForHour(h){if(h>=5&&h<10)return'desayuno';if(h>=10&&h<15)return'comida';if(h>=15&&h<19)return'merienda';if(h>=19&&h<24)return'cena';return'recena'}
+function mealForHour(h){if(h>=13&&h<16)return'desayuno';if(h>=16&&h<19)return'comida';if(h>=19&&h<22)return'merienda';if(h>=22||h<2)return'cena';return'recena'}
 function recipeCard(r){let [meal,n,p,c,f,desc]=r;return `<div class="card recipe"><span class="tag">${meal}</span><h3>${n}</h3><div class="meta">P ${p} g · HC ${c} g · G ${f} g</div><p class="muted">${desc}</p><a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" href="https://cookidoo.es/search/es-ES?query=${encodeURIComponent(n)}">Buscar en Cookidoo</a></div>`}
 function renderToday(){
  const n=new Date(), plan=adaptivePlan(n), [load,carbs]=loadLabel(plan), fat=fatigueFor(n), meal=mealForHour(n.getHours());
@@ -163,9 +179,13 @@ window.markTodayDone=async function markTodayDone(){
  save();renderAll();alert('Sesión guardada.');
 }
 function renderWeek(){
- let m=mondayOf(), html='', c=counts();
+ let m=mondayOf(), html='', c=counts(),runTarget=weekRunTarget();
+ const actualActivities=S.activities;
+ S.activities=[...actualActivities];
+ try{
  for(let i=0;i<7;i++){
    let d=addDays(m,i), plan=adaptivePlan(d), done=actsOn(d), isToday=dateEq(d,new Date());
+   if(iso(d)<iso())plan={title:done.length?'Registrado':'Sin sesión registrada',reason:'Histórico',kind:'history'};
    let football=footballScheduled(d);
    let events=[];
    if(football)events.push({t:'football',n:'Pachanga'});
@@ -177,15 +197,20 @@ function renderWeek(){
    html+=`<div class="day ${isToday?'todayday':''}"><div class="dayname">${DAYS[d.getDay()]}</div><div class="daydate">${d.getDate()}</div>`+
     events.map(e=>`<div class="event ${e.t} ${done.some(x=>x.type===e.t)?'done':''}">${e.n}</div>`).join('')+
     (done.length?`<div class="small muted" style="margin-top:8px">${done.length} actividad(es) registrada(s)</div>`:'')+
-    `</div>`;
+    `<button class="btn alt" onclick="setFootballFor('${iso(d)}',${!football})">${football?'Cancelar fútbol':'Confirmar fútbol'}</button></div>`;
+   if(iso(d)>=iso()&&!done.length){
+     const types=plan.kind==='combo'?['gym','run']:plan.kind==='football'&&plan.title.startsWith('Torso')?['gym','football']:[plan.kind];
+     for(const type of types.filter(t=>['gym','run','football'].includes(t)))S.activities.push({date:iso(d),type,duration:45,rpe:5,planned:true});
+   }
  }
+ }finally{S.activities=actualActivities;}
  document.getElementById('weekGrid').innerHTML=html;
- document.getElementById('gymCount').textContent=c.gym+'/3';document.getElementById('runCount').textContent=c.run+'/2';document.getElementById('footballCount').textContent=String(c.football);
+ document.getElementById('gymCount').textContent=c.gym+'/3';document.getElementById('runCount').textContent=c.run+'/'+runTarget;document.getElementById('footballCount').textContent=String(c.football);
  let notes=[];
  if(c.gym<3)notes.push(`Faltan ${3-c.gym} sesiones de fuerza.`);
- if(c.run<2)notes.push(`Faltan ${2-c.run} rodajes aeróbicos.`);
+ if(c.run<runTarget)notes.push(`Faltan ${runTarget-c.run} rodajes aeróbicos.`);
  if(c.football>=3)notes.push('Semana con 3+ pachangas: conviene recortar antes running que recuperación.');
- if(c.gym>=3&&c.run>=2)notes.push('Objetivos desplazables cubiertos: prioriza recuperación.');
+ if(c.gym>=3&&c.run>=runTarget)notes.push('Objetivos desplazables cubiertos: prioriza recuperación.');
  document.getElementById('plannerNotes').textContent=notes.join(' ');
 }
 window.saveActivity=async function saveActivity(){
@@ -282,6 +307,7 @@ async function ensureProfile(){
 }
 async function loadCloud(){
  if(!currentUser)return;
+ const requestedUser=currentUser.id;
  const [acts,weights,statuses,analyses,sleep,checkins,sets,achievements,game,meals,goals,reports,injuries,syncs]=await Promise.all([
    supabase.from('activities').select('*').eq('user_id',currentUser.id).order('activity_date',{ascending:true}),
    supabase.from('weigh_ins').select('*').eq('user_id',currentUser.id).order('measured_on',{ascending:true}),
@@ -298,13 +324,14 @@ async function loadCloud(){
    supabase.from('injuries').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(30),
    supabase.from('sync_sources').select('*').eq('user_id',currentUser.id)
  ]);
+ if(currentUser?.id!==requestedUser)return; // Ignore a response from an account that has signed out.
  const results=[acts,weights,statuses,analyses,sleep,checkins,sets,achievements,game,meals,goals,reports,injuries,syncs];
  const failed=results.filter(r=>r.error);
  if(failed.length)window.TrainingLab.report('Sincronización',failed.length+' consultas no se han podido completar. Los datos pueden estar incompletos.');
  else window.TrainingLab.update({lastSync:new Date().toISOString()});
  window.TrainingLab.update({activities:acts.data?.length||0,sleep:sleep.data?.length||0});
  if(!acts.error){
-   S.activities=acts.data.map(a=>({id:a.id,date:a.activity_date,type:a.activity_type,source:a.source,duration:Number(a.duration_min)||0,moving:Number(a.moving_time_min)||0,rpe:Number(a.rpe)||0,distance:Number(a.distance_km)||0,hr:Number(a.avg_hr)||0,hrmax:Number(a.max_hr)||0,kcal:Number(a.calories)||0,topSpeed:Number(a.top_speed_kmh)||0,highIntensity:Number(a.high_intensity_m)||0,sprints:Number(a.sprint_count)||0,absSprints:Number(a.absolute_sprint_count)||0,pace:Number(a.avg_pace_sec_km)||0,metrics:a.metrics||{},fitName:a.source==='fit'?a.title:null}));
+   S.activities=acts.data.map(a=>({id:a.id,date:a.activity_date,type:a.activity_type,source:a.source,started_at:a.started_at,duration:Number(a.duration_min)||0,moving:Number(a.moving_time_min)||0,rpe:Number(a.rpe)||0,distance:Number(a.distance_km)||0,hr:Number(a.avg_hr)||0,hrmax:Number(a.max_hr)||0,kcal:Number(a.calories)||0,topSpeed:Number(a.top_speed_kmh)||0,highIntensity:Number(a.high_intensity_m)||0,sprints:Number(a.sprint_count)||0,absSprints:Number(a.absolute_sprint_count)||0,pace:Number(a.avg_pace_sec_km)||0,metrics:a.metrics||{},fitName:a.source==='fit'?a.title:null}));
  }
  if(!weights.error) S.weights=weights.data.map(w=>({date:w.measured_on,kg:Number(w.weight_kg)}));
  if(!statuses.error){
@@ -315,7 +342,7 @@ async function loadCloud(){
    }
  }
  if(!analyses.error) cloudAnalyses = analyses.data || [];
- if(!sleep.error) cloudSleep=sleep.data||[];
+ if(!sleep.error) cloudSleep=uniqueNights(sleep.data||[]);
  if(!checkins.error) cloudCheckins=checkins.data||[];
  if(!sets.error) cloudSets=sets.data||[];
  if(!achievements.error) cloudAchievements=achievements.data||[];
@@ -362,7 +389,7 @@ async function initAuth(){
  try{
    const {data,error}=await supabase.auth.getSession();if(error)throw error;
    await applySession(data.session);
-   supabase.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>applySession(session).catch(e=>window.TrainingLab.report('Sesión',e)),0);});
+   supabase.auth.onAuthStateChange((event,session)=>{if(event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED')return;setTimeout(()=>applySession(session).catch(e=>window.TrainingLab.report('Sesión',e)),0);});
  }catch(e){window.TrainingLab.report('Inicio de sesión',e);}
 }
 
@@ -463,16 +490,16 @@ window.alertCorosSleep=function(){
  document.getElementById('corosSleepStatus').textContent='COROS está soportado a nivel de datos, pero tu cuenta debe autorizar el conector/API. La web seguirá funcionando con Health Connect/registro manual mientras tanto.';
 }
 function renderSleep(){
- const a=cloudSleep?.[0], ring=document.getElementById('sleepRing'); if(!ring)return;
- if(!a){document.getElementById('sleepScore').textContent='—';return}
- const score=a.sleep_score??Math.min(100,Math.round((a.total_sleep_min||0)/480*85+15));
- ring.style.setProperty('--pct',score+'%');document.getElementById('sleepScore').textContent=score;
+ const a=cloudSleep?.find(s=>(Date.now()-new Date(s.sleep_end||s.sleep_date+'T13:00:00'))/36e5<=36), ring=document.getElementById('sleepRing'); if(!ring)return;
+ if(!a){document.getElementById('sleepScore').textContent='—';document.getElementById('todaySleep').textContent='—';document.getElementById('todaySleepWindow').textContent='Falta sueño reciente';return}
+ const score=a.sleep_score??null;
+ ring.style.setProperty('--pct',score+'%');document.getElementById('sleepScore').textContent=score??'—';
  const hrs=((a.total_sleep_min||0)/60).toFixed(1);
  document.getElementById('sleepSummary').textContent=`${hrs} h · profundo ${a.deep_sleep_min??'—'} min · REM ${a.rem_sleep_min??'—'} min · HRV ${a.avg_hrv??'—'}`;
  let start=a.sleep_start?new Date(a.sleep_start).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
  let end=a.sleep_end?new Date(a.sleep_end).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
  const consistency=(start!=='—')?circDistMin(start,'05:00'):999;
- document.getElementById('sleepConsistency').textContent=`${start} → ${end}. Desviación de tu hora habitual: ${consistency<60?consistency+' min · normal':Math.round(consistency/60*10)/10+' h · fuera de tu rango habitual'}.`;
+ document.getElementById('sleepConsistency').textContent=`${start} → ${end}. Desviación de tu hora habitual: ${consistency<=60?consistency+' min · normal':Math.round(consistency/60*10)/10+' h · fuera de tu rango habitual'}.`;
  let insight='Con 7–14 noches empezaremos a comparar duración, regularidad, HRV y FC en reposo.';
  if(cloudSleep.length>=5){
   const mins=cloudSleep.slice(0,7).map(x=>x.total_sleep_min||0); insight=`Media reciente: ${(mins.reduce((a,b)=>a+b,0)/mins.length/60).toFixed(1)} h. Tu objetivo práctico está alrededor de 8 h, manteniendo consistencia dentro de ±1 h.`;
@@ -480,55 +507,10 @@ function renderSleep(){
  document.getElementById('sleepInsights').textContent=insight;
  document.getElementById('todaySleep').textContent=hrs+' h';document.getElementById('todaySleepWindow').textContent=`${start} → ${end}`;
 }
-function readiness(){
- let score=70,parts=[];
- const s=cloudSleep?.[0];
- if(s){
-   const hrs=(s.total_sleep_min||0)/60;
-   if(hrs>=7.5)score+=10; else if(hrs>=7)score+=5; else if(hrs<6)score-=18; else score-=8;
-   if(s.sleep_score>=80)score+=6; else if(s.sleep_score&&s.sleep_score<60)score-=10;
-   if(s.sleep_start){
-     const st=new Date(s.sleep_start).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',hour12:false});
-     const drift=circDistMin(st,'05:00'); if(drift<=60)score+=4; else if(drift>120)score-=6;
-   }
-   if(s.avg_hrv!=null&&s.hrv_baseline_low!=null&&s.hrv_baseline_high!=null){
-     if(Number(s.avg_hrv)<Number(s.hrv_baseline_low))score-=10;
-     else if(Number(s.avg_hrv)<=Number(s.hrv_baseline_high))score+=5;
-   }
-   if(s.resting_hr&&cloudSleep.length>=5){
-     const vals=cloudSleep.slice(1,15).map(x=>Number(x.resting_hr)).filter(Boolean).sort((a,b)=>a-b);
-     if(vals.length){const med=vals[Math.floor(vals.length/2)];if(Number(s.resting_hr)>=med+7)score-=7;}
-   }
- }
- const c=cloudCheckins?.find(x=>x.checkin_date===iso());
- if(c){
-   if(c.energy>=4)score+=5;if(c.energy<=2)score-=8;
-   if(c.soreness>=4)score-=8;if(c.stress>=4)score-=6;
-   if(c.motivation<=2)score-=4;if(c.hydration_ok===false)score-=3;
- }
- const recent=S.activities.filter(a=>{const d=(Date.now()-new Date(a.date+'T12:00:00'))/86400000;return d>=0&&d<=2});
- if(recent.some(a=>a.type==='football'))score-=8;
- const severe=cloudInjuries.some(i=>i.status==='active'&&Number(i.pain_score||0)>=5);if(severe)score-=12;
- score=Math.max(20,Math.min(100,Math.round(score)));
- if(score>=80)parts.push('muy buena disposición');else if(score>=65)parts.push('buena disposición');else if(score>=50)parts.push('carga manejable');else parts.push('recuperación prioritaria');
- if(s?.avg_hrv!=null&&s?.hrv_baseline_low!=null&&Number(s.avg_hrv)<Number(s.hrv_baseline_low))parts.push('HRV por debajo de tu rango');
- if(c?.soreness>=4)parts.push('musculatura cargada');
- return {score,text:parts.join(' · ')};
-}
+function readiness(){return readinessModel({sleep:cloudSleep,checkins:cloudCheckins,activities:S.activities,injuries:cloudInjuries});}
 function renderReadiness(){const r=readiness(),el=document.getElementById('readinessScore');if(!el)return;el.textContent=r.score+'/100';document.getElementById('readinessWhy').textContent=r.text}
 
-const RECOVERY_BASE={pecho:96,espalda:94,hombro:92,biceps:95,triceps:95,cuadriceps:78,isquios:72,gluteo:80,gemelos:70,core:92};
-function calcRecovery(){
- const r={...RECOVERY_BASE}, now=Date.now();
- for(const a of S.activities){
-  const age=(now-new Date(a.date+'T12:00:00'))/3600000;if(age<0||age>96)continue;
-  const decay=Math.max(0,1-age/96),load=(a.rpe||5)*decay;
-  if(a.type==='football'||a.type==='run'){for(const m of ['cuadriceps','isquios','gluteo','gemelos'])r[m]-=load*3.0}
-  if(a.type==='gym'){for(const m of ['pecho','espalda','hombro','biceps','triceps','cuadriceps','isquios','gluteo'])r[m]-=load*1.0}
- }
- for(const st of cloudSets||[]){const age=(now-new Date(st.performed_at))/3600000;if(age>72)continue;let m=st.muscle_group;if(m&&r[m]!=null)r[m]-=(Number(st.rpe)||7)*Math.max(0,1-age/72)*2.2}
- Object.keys(r).forEach(k=>r[k]=Math.max(10,Math.min(100,Math.round(r[k]))));return r;
-}
+function calcRecovery(date=new Date()){const now=iso(date)===iso()?new Date():new Date(iso(date)+'T15:00:00');return recoveryModel({activities:S.activities,sets:cloudSets,now});}
 function renderRecovery(){
  const el=document.getElementById('recoveryList');if(!el)return;const r=calcRecovery();
  el.innerHTML=Object.entries(r).map(([k,v])=>`<div class="recovery-row"><span>${k}</span><div class="recovery-bar"><i style="width:${v}%"></i></div><b>${v}%</b></div>`).join('');
@@ -585,7 +567,7 @@ function targetsForToday(){
  return {protein:130,carbs,fat:75};
 }
 function todayMeals(){
- const now=iso();return (window.cloudMeals||[]).filter(x=>String(x.eaten_at||'').slice(0,10)===now)
+ const now=iso();return (window.cloudMeals||[]).filter(x=>x.eaten_at&&iso(new Date(x.eaten_at))===now)
 }
 function renderMealPlanner(){
  const el=document.getElementById('macroRemaining');if(!el)return;const t=targetsForToday(),m=todayMeals(),sum=k=>m.reduce((s,x)=>s+Number(x[k]||0),0);
@@ -633,7 +615,7 @@ async function awardXp(amount,reason){
 }
 window.checkAchievements=async function(){
  if(!currentUser)return alert('Inicia sesión.');
- const c=counts(),candidates=[],weights=[...S.weights].sort((a,b)=>a.date.localeCompare(b.date));
+ const runTarget=weekRunTarget(),c=counts(),candidates=[],weights=[...S.weights].sort((a,b)=>a.date.localeCompare(b.date));
  if(c.gym>=3)candidates.push(['weekly_strength_3_'+iso(mondayOf()),'Semana de Hierro','Has completado 3 sesiones de fuerza esta semana.',40,'rare']);
  if(c.run>=2)candidates.push(['weekly_aerobic_2_'+iso(mondayOf()),'Motor Aeróbico','Has completado 2 rodajes aeróbicos esta semana.',35,'rare']);
  if(c.football>=2)candidates.push(['weekly_football_2_'+iso(mondayOf()),'Doble Jornada','Has jugado 2 pachangas esta semana.',30,'common']);
@@ -661,12 +643,13 @@ function renderRpg(){
  e=document.getElementById('achievementList');if(e)e.innerHTML=(cloudAchievements||[]).map(a=>`<div class="badge rarity-${a.rarity}"><b>${a.title}</b><br><span class="muted">${a.description||''} · +${a.xp} XP</span></div>`).join('')||'<p class="muted">Todavía sin logros.</p>';
 }
 window.generateWeeklyReport=async function(){
+ const runTarget=weekRunTarget();
  const m=mondayOf(),end=addDays(m,6),acts=weekActivities(),c=counts(),weights=[...S.weights].sort((a,b)=>a.date.localeCompare(b.date));
  const sleep=cloudSleep.filter(s=>new Date(s.sleep_date+'T12:00:00')>=m&&new Date(s.sleep_date+'T12:00:00')<=addDays(end,1));
  const sleepAvg=sleep.length?sleep.reduce((x,s)=>x+(s.total_sleep_min||0),0)/sleep.length/60:null;
  const load=acts.reduce((x,a)=>x+(a.duration||0)*(a.rpe||0),0),km=acts.reduce((x,a)=>x+(a.distance||0),0);
  let wt='sin suficientes datos';if(weights.length>=2)wt=`${weights.at(-2).kg.toFixed(1)} → ${weights.at(-1).kg.toFixed(1)} kg`;
- const txt=`FUERZA: ${c.gym}/3\nRUNNING: ${c.run}/2\nFÚTBOL: ${c.football}\nCARGA: ${Math.round(load)} min×RPE\nDISTANCIA: ${km.toFixed(1)} km\nSUEÑO MEDIO: ${sleepAvg?sleepAvg.toFixed(1)+' h':'—'}\nPESO: ${wt}\n\nRECOMENDACIÓN: ${c.gym<3?'priorizar fuerza; ':''}${c.run<2?'mantener al menos un rodaje fácil; ':''}${sleepAvg&&sleepAvg<7?'proteger algo más el sueño; ':''}${load>1200?'reducir carga desplazable la próxima semana.':'mantener progresión gradual.'}`;
+ const txt=`FUERZA: ${c.gym}/3\nRUNNING: ${c.run}/2\nFÚTBOL: ${c.football}\nCARGA: ${Math.round(load)} min×RPE\nDISTANCIA: ${km.toFixed(1)} km\nSUEÑO MEDIO: ${sleepAvg?sleepAvg.toFixed(1)+' h':'—'}\nPESO: ${wt}\n\nRECOMENDACIÓN: ${c.gym<3?'priorizar fuerza; ':''}${c.run<runTarget?'mantener al menos un rodaje fácil; ':''}${sleepAvg&&sleepAvg<7?'proteger algo más el sueño; ':''}${load>1200?'reducir carga desplazable la próxima semana.':'mantener progresión gradual.'}`;
  document.getElementById('weeklyReport').textContent=txt;
  const existed=cloudReports.some(r=>r.week_start===iso(m));
  if(currentUser){
@@ -763,17 +746,19 @@ function renderCorrelations(){
  const lowSleep=football.filter(a=>{
    const d=new Date(a.date+'T12:00:00');const s=cloudSleep.find(x=>Math.abs((new Date(x.sleep_date+'T12:00:00')-d)/86400000)<=1);return s&&(s.total_sleep_min||0)<420;
  });
- if(goodSleep.length>=2&&lowSleep.length>=2){
+ if(goodSleep.length>=5&&lowSleep.length>=5){
    const g=goodSleep.reduce((s,a)=>s+a.hr,0)/goodSleep.length,l=lowSleep.reduce((s,a)=>s+a.hr,0)/lowSleep.length;
    insights.push(`Con ≥7 h de sueño tu FC media en fútbol es ${g.toFixed(0)} ppm frente a ${l.toFixed(0)} ppm con <7 h. Aún es asociación, no causalidad.`);
  }
  const carbYes=paired(c=>c.enough_carbs===true),carbNo=paired(c=>c.enough_carbs===false);
- if(carbYes.length>=2&&carbNo.length>=2){
-   const metric=a=>a.highIntensity||a.distance*1000;
+ if(carbYes.length>=5&&carbNo.length>=5){
+   const metric=a=>a.highIntensity;
+   if([...carbYes,...carbNo].some(a=>!Number.isFinite(a.highIntensity)))return;
    const y=carbYes.reduce((s,a)=>s+metric(a),0)/carbYes.length,n=carbNo.reduce((s,a)=>s+metric(a),0)/carbNo.length;
    insights.push(`Cuando marcas “carbohidratos suficientes”, tu trabajo intenso/volumen asociado es ${((y-n)/Math.max(1,n)*100).toFixed(0)} % diferente.`);
  }
  if(cloudCheckins.length<10)insights.push(`Llevas ${cloudCheckins.length} check-ins. A partir de ~10–20 registros empiezan a tener sentido las primeras comparaciones.`);
+ insights.push('Asociación ≠ causalidad. Mínimo 5 sesiones por grupo; compara condiciones y duración similares.');
  el.innerHTML=insights.map(x=>`<div class="insight">${x}</div>`).join('');
 }
 function renderQuestList(){
