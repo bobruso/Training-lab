@@ -16,7 +16,7 @@ test('password login persists in WebView, updates password and never sends OTP',
  await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('test-password-123');await page.locator('[data-auth=signin]').click();
  await expect(page.locator('#logoutBtn')).toBeVisible();
  await page.reload();await expect(page.locator('#logoutBtn')).toBeVisible();
- await page.locator('#authPassword').fill('new-password-123');await page.locator('[data-auth=update]').click();await expect.poll(()=>updated).toBe(true);expect(otp).toBe(0);
+ await page.locator('#authPassword').fill('new-password-123');await page.locator('[data-auth=update]').click();await expect.poll(()=>updated).toBe(true);expect(otp).toBe(0);await expect(page.locator('#authFeedback')).toContainText('Contraseña guardada');await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,150)));await expect(page.locator('#authFeedback')).toContainText('Contraseña guardada');
  expect(await page.evaluate(()=>localStorage.getItem('sb-nnpvklaxhomarxszlclt-auth-token'))).not.toContain('test-password');
 });
 test('signup confirmation, recovery and rejected passwords have clear feedback',async({page})=>{
@@ -26,6 +26,6 @@ test('signup confirmation, recovery and rejected passwords have clear feedback',
  await page.goto('/');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);
  await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('short');await page.locator('[data-auth=signup]').click();await expect(page.locator('#cloudDetail')).toContainText('8 caracteres');
  await page.locator('#authPassword').fill('test-password-123');await page.locator('[data-auth=signup]').click();await expect(page.locator('#cloudDetail')).toContainText('confirmar');
- await page.locator('#authPassword').fill('bad-password');await page.locator('[data-auth=signin]').click();await expect(page.locator('#cloudDetail')).toContainText('incorrectos');
+ await page.locator('#authPassword').fill('bad-password');await page.locator('[data-auth=signin]').click();await expect(page.locator('#cloudDetail')).toContainText('incorrectos');await expect(page.locator('#appError')).toContainText('Email o contraseña incorrectos');await expect(page.locator('#appError')).not.toContainText('HTTP 400');
  await page.locator('[data-auth=recover]').click();await expect(page.locator('#cloudDetail')).toContainText('Si la cuenta existe');
 });

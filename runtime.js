@@ -33,12 +33,29 @@
     e.preventDefault();
     const action=button.dataset.auth,input=document.getElementById('authEmail'),passwordInput=document.getElementById('authPassword'),detail=document.getElementById('cloudDetail');
     const email=input.value.trim(),password=passwordInput.value;
+    const feedback=document.getElementById('authFeedback');
+    const show=message=>{detail.textContent=message;feedback.textContent=message;feedback.hidden=false;};
     if(action!=='update'&&(!email||!input.checkValidity())){detail.textContent='Escribe un email válido.';input.focus();return;}
     if(action!=='recover'&&(!password||((action==='signup'||action==='update')&&password.length<8))){detail.textContent='Introduce una contraseña'+(action==='signin'?'.':' de al menos 8 caracteres.');passwordInput.focus();return;}
     if(!window.TrainingLab.passwordAuth){detail.textContent='La aplicación aún no está lista. Recarga con conexión.';return;}
     passwordBusy=true;const label=button.textContent;button.disabled=true;button.textContent='Procesando…';
-    try {detail.textContent=await window.TrainingLab.passwordAuth(action,email,password);passwordInput.value='';}
-    catch(error){const code=error.code||({'Invalid login credentials':'invalid_credentials','Email not confirmed':'email_not_confirmed'}[error.message])||'';detail.textContent=error.status===429?'Demasiadas solicitudes. El servicio ha limitado los intentos; espera antes de repetir. Entrar con una contraseña ya creada no envía correo.':code==='invalid_credentials'?'Email o contraseña incorrectos. Si antes usabas enlaces, crea tu contraseña desde un dispositivo donde ya tengas sesión.':code==='email_not_confirmed'?'Confirma primero tu correo y después entra con tu contraseña.':code==='weak_password'?'La contraseña no cumple los requisitos de seguridad. Usa una más larga y variada.':'No se pudo completar el acceso. Comprueba la conexión y vuelve a intentarlo.';}
+    try {show(await window.TrainingLab.passwordAuth(action,email,password));passwordInput.value='';document.getElementById('appError').hidden=true;}
+    catch(error){
+      const code=error.code||({'Invalid login credentials':'invalid_credentials','Email not confirmed':'email_not_confirmed'}[error.message])||'';
+      const messages={
+        invalid_credentials:'Email o contraseña incorrectos. Usa el mismo correo de tu sesión abierta y la contraseña que guardaste.',
+        email_not_confirmed:'Confirma primero tu correo y después entra con tu contraseña.',
+        weak_password:'La contraseña no cumple los requisitos de seguridad. Usa una más larga y variada.',
+        same_password:'Esa contraseña ya está guardada. Puedes usarla para entrar en la APK.',
+        reauthentication_needed:'Por seguridad, debes volver a autenticarte antes de cambiar la contraseña.',
+        session_not_found:'La sesión ha caducado. Vuelve a iniciar sesión.',
+        user_banned:'El acceso a esta cuenta está deshabilitado.',
+        signup_disabled:'El registro de cuentas está deshabilitado.',
+        over_email_send_rate_limit:'Se ha alcanzado el límite de correos. No repitas el registro; entra con tu contraseña si ya tienes cuenta.'
+      };
+      const message=messages[code]||(error.status===429?'Demasiadas solicitudes. Espera antes de repetir.':error.name==='AbortError'?'La solicitud tardó demasiado. Comprueba tu conexión.':'No se pudo completar el acceso'+(error.status?' (HTTP '+error.status+')':'')+'. '+(code?'Código: '+safe(code)+'.':'Comprueba la conexión.'));
+      show(message);report('Acceso',message);
+    }
     finally {passwordBusy=false;button.disabled=false;button.textContent=label;}
   });
   let sending=false;

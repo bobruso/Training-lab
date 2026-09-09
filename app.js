@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=4f666878a1';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=4f666878a1';
-import { createClient } from "./vendor/supabase.js?v=4f666878a1";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=3ac46478a8';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=3ac46478a8';
+import { createClient } from "./vendor/supabase.js?v=3ac46478a8";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -8,7 +8,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {global:{fetch:async(i
  const response=await window.TrainingLab.request(input,options);
  const path=new URL(typeof input==='string'?input:input.url).pathname;
  if(path.includes('/functions/v1/'))window.TrainingLab.update({lastFunction:path.split('/').at(-1)});
- if(!response.ok)window.TrainingLab.report('Supabase', 'La operación no se ha completado (HTTP '+response.status+'). Revisa la conexión y vuelve a intentarlo.');
+ if(!response.ok&&!path.startsWith('/auth/v1/'))window.TrainingLab.report('Supabase', 'La operación no se ha completado (HTTP '+response.status+'). Revisa la conexión y vuelve a intentarlo.');
  return response;
 }}});
 // Stop a failed write before callers can announce success or award XP.
