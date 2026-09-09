@@ -14,14 +14,20 @@ La web se sirve desde `main` → `/ (root)`.
 
 En Supabase:
 
-Authentication → URL Configuration → Redirect URLs
+Authentication → URL Configuration
 
-Añadir:
+Configura:
 
-- `https://bobruso.github.io/Training-lab/**`
+**Site URL**
+
+`https://bobruso.github.io/Training-lab/`
+
+**Redirect URLs**
+
+- `https://bobruso.github.io/Training-lab/`
 - `traininglab://auth`
 
-La primera permite que el magic link vuelva correctamente a GitHub Pages. La segunda permite que, desde el companion Android, el magic link vuelva a la app en lugar de quedarse en Chrome.
+Usamos la URL exacta en producción. La primera permite que el magic link vuelva correctamente a GitHub Pages. La segunda permite que, desde el companion Android, el magic link vuelva a la app en lugar de quedarse en Chrome.
 
 ## 3. Primera prueba web
 
