@@ -1,0 +1,9 @@
+{
+  "name": "Training Lab",
+  "short_name": "TrainingLab",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0f12",
+  "theme_color": "#0c1114",
+  "icons": []
+}

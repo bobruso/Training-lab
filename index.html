@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0c1114">
+<meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
 <title>Training Lab · Adaptativo</title>
 <link rel="stylesheet" href="./styles.css">
 </head>
@@ -24,7 +24,7 @@
   </div>
 </div>
  <nav>
-  <button class="on" data-page="hoy">Hoy</button><button data-page="semana">Semana</button><button data-page="comer">Comer</button><button data-page="registro">Registrar</button><button data-page="entrenos">Entrenamientos</button><button data-page="gym">Gym</button><button data-page="progreso">Progreso</button>
+  <button class="on" data-page="hoy">Hoy</button><button data-page="semana">Semana</button><button data-page="comer">Comer</button><button data-page="registro">Registrar</button><button data-page="entrenos">Entrenamientos</button><button data-page="gym">Gym</button><button data-page="sueno">Sueño</button><button data-page="checkin">Check-in</button><button data-page="recuperacion">Recuperación</button><button data-page="comparar">Comparar</button><button data-page="progreso">Progreso</button><button data-page="rpg">RPG</button>
  </nav>
 
  <section class="page on" id="hoy">
@@ -41,6 +41,11 @@
    </div>
   </div>
 
+  <div class="section grid g3">
+   <div class="card metric"><div class="k">Readiness</div><div class="v" id="readinessScore">—</div><div class="muted" id="readinessWhy">Necesito sueño + check-in.</div></div>
+   <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
+   <div class="card metric"><div class="k">Nivel RPG</div><div class="v" id="todayLevel">1</div><div class="muted" id="todayXp">0 XP</div></div>
+  </div>
   <div class="section grid g2">
    <div class="card">
     <div class="eyebrow">Te toca</div>
@@ -60,6 +65,9 @@
    </div>
   </div>
 
+  <div class="section card" id="matchDayPanel" style="display:none">
+   <div class="eyebrow">Modo día de partido</div><div class="grid g2"><div><div class="match-countdown" id="matchCountdown">—</div><p class="muted">para la pachanga</p><div class="fuel"><i id="matchFuel" style="width:0%"></i></div><p class="muted" id="matchFuelText"></p></div><div><h3>Tu plan de gasolina</h3><div id="matchMealAdvice"></div></div></div>
+  </div>
   <div class="section grid g3">
     <div class="card">
       <div class="eyebrow">Estado</div><h3>¿Cómo te notas?</h3>
@@ -101,6 +109,11 @@
     <div class="card metric"><div class="k">HC entreno</div><div class="v">300–350 g</div></div>
     <div class="card metric"><div class="k">HC fútbol</div><div class="v">350–425 g</div></div>
    </div>
+   <div class="sectionhead section"><h2>Meal planner de hoy</h2><span class="muted">se adapta a carga y partido</span></div>
+   <div class="grid g2">
+    <div class="card"><div class="eyebrow">Objetivo del día</div><div id="macroRemaining"></div><div class="fuel" style="margin-top:10px"><i id="macroFuel" style="width:0%"></i></div></div>
+    <div class="card"><div class="eyebrow">Plan</div><div id="mealPlanSlots"></div></div>
+   </div>
    <div class="sectionhead section"><h2>Recetas</h2><span class="muted">con acceso rápido a Cookidoo</span></div>
    <div class="grid g3" id="allRecipes"></div>
  </section>
@@ -135,6 +148,12 @@
     </div>
    </div>
    <div class="card section">
+    <div class="eyebrow">Fuerza detallada</div><h2>Registrar serie</h2>
+    <div class="formrow"><div class="field"><label>Ejercicio</label><input id="setExercise" placeholder="Press banca"></div><div class="field"><label>Músculo</label><select id="setMuscle"><option>pecho</option><option>espalda</option><option>hombro</option><option>biceps</option><option>triceps</option><option>cuadriceps</option><option>isquios</option><option>gluteo</option><option>gemelos</option><option>core</option></select></div><div class="field"><label>Kg</label><input id="setWeight" type="number" step=".5"></div><div class="field"><label>Reps</label><input id="setReps" type="number"></div></div>
+    <div class="formrow" style="margin-top:8px"><div class="field"><label>RIR</label><input id="setRir" type="number" step=".5" value="2"></div><div class="field"><label>RPE</label><input id="setRpe" type="number" step=".5" value="8"></div></div>
+    <button class="btn" style="margin-top:10px" onclick="saveStrengthSet()">Guardar serie</button>
+   </div>
+   <div class="card section">
     <div class="eyebrow">Historial reciente</div><div style="overflow:auto"><table class="history"><thead><tr><th>Fecha</th><th>Tipo</th><th>Dur.</th><th>RPE</th><th>Dist.</th><th>FC</th></tr></thead><tbody id="activityRows"></tbody></table></div>
    </div>
  </section>
@@ -162,8 +181,82 @@
   </div>
  </section>
 
+
+ <section class="page" id="sueno">
+  <div class="sectionhead"><h2>Sueño</h2><span class="muted">analizado contra tu horario real, no contra uno convencional</span></div>
+  <div class="grid g3">
+   <div class="card module-hero"><div class="eyebrow">Último sueño</div><div class="sleep-ring" id="sleepRing" style="--pct:0%"><b id="sleepScore">—</b></div><p id="sleepSummary" class="muted">Sin datos todavía.</p></div>
+   <div class="card"><div class="eyebrow">Tu cronotipo operativo</div><h2>05:00 → 13:00</h2><p class="muted">La app considera normal una variación aproximada de ±1 hora. La consistencia se calcula contra tu propio horario, no contra acostarse antes de medianoche.</p><div id="sleepConsistency" class="notice">Pendiente de datos.</div></div>
+   <div class="card"><div class="eyebrow">COROS PACE 4</div><h2>Sleep + HRV</h2><p class="muted">PACE 4 puede aportar Sleep Score, sueño profundo/ligero/REM, despertares, siestas y HRV nocturna.</p><button class="btn alt" onclick="alertCorosSleep()">Sincronizar COROS</button><div id="corosSleepStatus" class="small muted" style="margin-top:8px">La conexión de cuenta debe autorizarse.</div></div>
+  </div>
+  <div class="section grid g2">
+   <div class="card"><div class="eyebrow">Registrar sueño manual</div><h2>Fallback / corrección</h2>
+    <div class="formrow"><div class="field"><label>Fecha</label><input type="date" id="sleepDate"></div><div class="field"><label>Dormir</label><input type="time" id="sleepStart" value="05:00"></div><div class="field"><label>Despertar</label><input type="time" id="sleepEnd" value="13:00"></div><div class="field"><label>Sleep score</label><input type="number" id="sleepScoreInput" min="0" max="100"></div></div>
+    <div class="formrow" style="margin-top:8px"><div class="field"><label>Profundo min</label><input type="number" id="deepMin"></div><div class="field"><label>REM min</label><input type="number" id="remMin"></div><div class="field"><label>HRV media</label><input type="number" id="sleepHrv"></div><div class="field"><label>FC reposo</label><input type="number" id="sleepRhr"></div></div>
+    <button class="btn" style="margin-top:10px" onclick="saveSleep()">Guardar sueño</button>
+   </div>
+   <div class="card"><div class="eyebrow">Estudio profundo</div><h2>Qué vamos a correlacionar</h2><div id="sleepInsights" class="muted">Necesitamos varias noches para detectar tendencias: sueño total, regularidad, HRV, FC reposo, alcohol, cafeína tarde, carga de entrenamiento y rendimiento posterior.</div></div>
+  </div>
+ </section>
+
+ <section class="page" id="checkin">
+  <div class="sectionhead"><h2>Test diario</h2><span class="muted">30 segundos ahora, información útil dentro de semanas</span></div>
+  <div class="card"><div class="eyebrow">Hoy</div><h2>¿Cómo estás?</h2>
+   <div class="question-grid" id="dailyQuestions"></div>
+   <div class="grid g2" style="margin-top:12px">
+    <div class="qcard"><b>¿Alcohol en las últimas 24 h?</b><div class="actions" style="margin-top:8px"><button class="btn alt" onclick="setBoolAnswer('alcohol',true,this)">Sí</button><button class="btn alt" onclick="setBoolAnswer('alcohol',false,this)">No</button></div></div>
+    <div class="qcard"><b>¿Cafeína muy tarde?</b><div class="actions" style="margin-top:8px"><button class="btn alt" onclick="setBoolAnswer('caffeine_late',true,this)">Sí</button><button class="btn alt" onclick="setBoolAnswer('caffeine_late',false,this)">No</button></div></div>
+    <div class="qcard"><b>¿Has comido suficientes HC?</b><div class="actions" style="margin-top:8px"><button class="btn alt" onclick="setBoolAnswer('enough_carbs',true,this)">Sí</button><button class="btn alt" onclick="setBoolAnswer('enough_carbs',false,this)">No</button></div></div>
+    <div class="qcard"><b>¿Hidratación correcta?</b><div class="actions" style="margin-top:8px"><button class="btn alt" onclick="setBoolAnswer('hydration_ok',true,this)">Sí</button><button class="btn alt" onclick="setBoolAnswer('hydration_ok',false,this)">No</button></div></div>
+   </div>
+   <div class="field" style="margin-top:12px"><label>Notas</label><input id="checkinNotes" placeholder="Piernas pesadas, mucho trabajo, siesta..."></div>
+   <button class="btn" style="margin-top:12px" onclick="saveCheckin()">Guardar test</button>
+  </div>
+  <div class="card section"><div class="eyebrow">Correlaciones futuras</div><h2>Qué aprenderá Training Lab</h2><p class="muted">Ejemplos: cómo cambia tu FC en partidos después de dormir ≥7 h; si rendiste mejor con más carbohidrato; cuánto afecta fuerza de piernas <24 h antes de fútbol; relación entre estrés, HRV y recuperación.</p></div>
+ </section>
+
+ <section class="page" id="recuperacion">
+  <div class="sectionhead"><h2>Recuperación corporal</h2><span class="muted">músculos + molestias + postpartido</span></div>
+  <div class="grid g2">
+   <div class="card"><div class="eyebrow">Mapa corporal</div><div class="body-wrap">
+    <div class="bodymap"><div class="bodypart body-head good"></div><div class="bodypart body-chest good" id="bodyTorso"></div><div class="bodypart body-arm-l good"></div><div class="bodypart body-arm-r good"></div><div class="bodypart body-core good"></div><div class="bodypart body-leg-l mid" id="bodyLegL"></div><div class="bodypart body-leg-r mid" id="bodyLegR"></div></div>
+    <div class="recovery-list" id="recoveryList"></div>
+   </div></div>
+   <div class="card"><div class="eyebrow">Molestias / lesión</div><h2>¿Qué te molesta?</h2><div class="formrow"><div class="field"><label>Zona</label><select id="injuryArea"><option>isquios</option><option>cuadriceps</option><option>gemelo</option><option>tobillo</option><option>pie</option><option>rodilla</option><option>aductor</option><option>ingle</option><option>espalda</option><option>hombro</option><option>otro</option></select></div><div class="field"><label>Lado</label><select id="injurySide"><option>derecho</option><option>izquierdo</option><option>ambos</option></select></div><div class="field"><label>Dolor 0–10</label><input id="injuryPain" type="number" min="0" max="10" value="2"></div><div class="field"><label>Cuándo empezó</label><input id="injuryDate" type="date"></div></div>
+    <div class="field" style="margin-top:8px"><label>Describe qué notas y qué lo provoca</label><input id="injuryText" placeholder="Tirantez al acelerar, dolor al apoyar..."></div>
+    <div class="question" style="margin-top:10px"><b>Señales de alarma</b><div class="checkline"><input type="checkbox" id="rfTrauma"> Traumatismo fuerte / deformidad</div><div class="checkline"><input type="checkbox" id="rfNoWeight"> No puedo apoyar o caminar</div><div class="checkline"><input type="checkbox" id="rfNeuro"> Debilidad, hormigueo persistente o pérdida de sensibilidad</div><div class="checkline"><input type="checkbox" id="rfSwelling"> Hinchazón importante o empeoramiento rápido</div></div>
+    <button class="btn" style="margin-top:10px" onclick="analyzeInjury()">Analizar molestia</button>
+    <div id="injuryAdvice" style="margin-top:10px"></div>
+   </div>
+  </div>
+  <div class="card section"><div class="eyebrow">Modo postpartido</div><h2 id="postMatchTitle">Sin partido reciente detectado</h2><div id="postMatchRecovery" class="muted">Tras registrar/subir un partido, aquí aparecerá una rutina de recuperación adaptada a su carga.</div></div>
+ </section>
+
+ <section class="page" id="comparar">
+  <div class="sectionhead"><h2>Comparador</h2><span class="muted">partidos, running y fuerza por separado</span></div>
+  <div class="grid g2">
+   <div class="card"><div class="eyebrow">Selecciona 2 actividades</div><div id="compareSelector"></div></div>
+   <div class="card"><div class="eyebrow">Resultado</div><div id="compareResult" class="muted">Selecciona dos actividades compatibles.</div></div>
+  </div>
+  <div class="card section"><div class="eyebrow">Fuerza</div><h2>Comparación de progreso</h2><div id="strengthCompare" class="muted">Registra series para comparar volumen, repeticiones y carga por ejercicio.</div></div>
+ </section>
+
+ <section class="page" id="rpg">
+  <div class="sectionhead"><h2>Training Quest</h2><span class="muted">tu progreso físico convertido en ARPG personal</span></div>
+  <div class="card module-hero"><div class="rpg-head"><div class="avatar">⚔️</div><div><div class="eyebrow">Tu personaje</div><h2 id="rpgLevel">Nivel 1</h2><div class="xpbar"><i id="rpgXpBar" style="width:0%"></i></div><p class="muted" id="rpgXpText">0 / 100 XP</p></div></div></div>
+  <div class="section grid g3">
+   <div class="card metric"><div class="k">Fuerza</div><div class="v" id="statStrength">1</div></div>
+   <div class="card metric"><div class="k">Resistencia</div><div class="v" id="statEndurance">1</div></div>
+   <div class="card metric"><div class="k">Recuperación</div><div class="v" id="statRecovery">1</div></div>
+  </div>
+  <div class="section grid g2">
+   <div class="card"><div class="eyebrow">Inventario</div><h2>Objetos encontrados</h2><div class="inventory" id="inventory"></div></div>
+   <div class="card"><div class="eyebrow">Logros</div><h2>Premios personales</h2><div id="achievementList"></div><button class="btn alt" onclick="checkAchievements()">Comprobar objetivos</button></div>
+  </div>
+ </section>
+
  <section class="page" id="progreso">
-   <div class="sectionhead"><h2>Progreso</h2><span class="muted">compararemos producción y coste</span></div><div class="notice" id="syncNotice">Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.</div>
+   <div class="sectionhead"><h2>Progreso</h2><span class="muted">compararemos producción y coste</span></div><div class="card" id="weeklyReportCard"><div class="eyebrow">Informe semanal</div><h2 id="weeklyReportTitle">Domingo: revisión semanal</h2><div id="weeklyReport" class="muted weekreport">Se generará con tus actividades, sueño, peso, comidas y check-ins.</div><button class="btn alt" style="margin-top:10px" onclick="generateWeeklyReport()">Generar ahora</button></div><div class="notice" id="syncNotice">Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.</div>
    <div class="grid g4">
     <div class="card metric"><div class="k">Peso actual</div><div class="v" id="currentWeight">70,0 kg</div></div>
     <div class="card metric"><div class="k">Carga 7 días</div><div class="v" id="load7">0</div><div class="muted">min × RPE</div></div>
@@ -193,9 +286,9 @@
 </div>
 
 <div class="bottom">
- <button class="on" data-page="hoy">HOY</button><button data-page="semana">SEMANA</button><button data-page="comer">COMER</button><button data-page="registro">REGISTRAR</button><button data-page="progreso">PROGRESO</button>
+ <button class="on" data-page="hoy">HOY</button><button data-page="semana">SEMANA</button><button data-page="comer">COMER</button><button data-page="recuperacion">RECUP.</button><button data-page="progreso">PROGRESO</button>
 </div>
 
-<script type="module" src="./app.js"></script>
+<script type="module" src="./app.js"></script><script>if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js")</script>
 </body>
 </html>

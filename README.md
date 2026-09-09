@@ -66,3 +66,29 @@ No subas nunca al repositorio:
 - JWT privados
 
 La web solo contiene la publishable key permitida para cliente.
+
+
+## V5 — módulos añadidos
+
+- Sueño adaptado al horario personal 05:00–13:00 ±1 h.
+- Estructura para COROS PACE 4: Sleep Score, fases, siestas, HRV nocturna.
+- Readiness diario.
+- Test diario de energía, agujetas, estrés, ánimo, motivación, sueño, alcohol, cafeína, carbohidratos e hidratación.
+- Mapa corporal de recuperación.
+- Registro detallado de series de fuerza.
+- Comparador de partidos/running y comparador de fuerza.
+- Meal Planner con macros restantes y comidas del día.
+- Modo Día de Partido.
+- Recuperación postpartido.
+- Registro de molestias con triaje de señales de alarma y adaptación de entrenamiento (no diagnóstico).
+- Informe semanal.
+- Sistema RPG: XP, niveles, logros e inventario.
+- PWA instalable.
+
+### Health Connect
+
+La web ya está estructurada para recibir sus datos, pero Health Connect requiere el SDK Android; una web de GitHub Pages no puede leer Health Connect directamente. La fase Android debe envolver esta web o crear una app companion nativa.
+
+### COROS
+
+COROS es compatible con Health Connect. La sincronización directa vía API COROS requiere autorización de cuenta/API. Mientras se configura, se puede usar registro manual y FIT.
