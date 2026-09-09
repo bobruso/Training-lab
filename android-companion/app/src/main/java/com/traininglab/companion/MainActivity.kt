@@ -5,6 +5,8 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -31,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Duration
@@ -44,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private var pendingSupabaseUrl: String? = null
     private var syncing = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingSharedFit: String? = null
     private val backendUrl = "https://nnpvklaxhomarxszlclt.supabase.co"
 
     private fun trusted(uri: Uri): Boolean = uri.scheme == "https" && uri.host == "bobruso.github.io" &&
@@ -140,6 +144,7 @@ class MainActivity : ComponentActivity() {
 
             addJavascriptInterface(WebBridge(), "TrainingLabAndroid")
         }
+        captureSharedFit(intent)
         setContentView(webView)
         loadInitialUrl(intent)
     }
@@ -147,7 +152,59 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        captureSharedFit(intent)
         loadInitialUrl(intent)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun sharedStream(intent: Intent): Uri? =
+        intent.getParcelableExtra(Intent.EXTRA_STREAM) ?: intent.clipData?.getItemAt(0)?.uri
+
+    private fun sharedDisplayName(uri: Uri): String {
+        if (uri.scheme == "content") {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (i >= 0) c.getString(i)?.takeIf { it.isNotBlank() }?.let { return it }
+                }
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "coros-actividad.fit"
+    }
+
+    private fun captureSharedFit(intent: Intent?): Boolean {
+        if (intent?.action != Intent.ACTION_SEND) return false
+        val uri = sharedStream(intent) ?: run {
+            pendingSharedFit = JSONObject().put("error", "Training Lab no ha recibido ningún archivo desde COROS.").toString()
+            return true
+        }
+        return try {
+            val out = ByteArrayOutputStream()
+            contentResolver.openInputStream(uri)?.use { input ->
+                val buffer = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n <= 0) break
+                    total += n
+                    if (total > 20 * 1024 * 1024) error("El FIT supera el límite de 20 MB")
+                    out.write(buffer, 0, n)
+                }
+            } ?: error("No se puede abrir el archivo compartido")
+            val bytes = out.toByteArray()
+            if (bytes.size < 12 || String(bytes, 8, 4, Charsets.US_ASCII) != ".FIT") error("El archivo compartido no es un FIT válido")
+            var name = sharedDisplayName(uri)
+            if (!name.endsWith(".fit", ignoreCase = true)) name += ".fit"
+            pendingSharedFit = JSONObject()
+                .put("name", name)
+                .put("activity_type", "football")
+                .put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP))
+                .toString()
+            true
+        } catch (e: Exception) {
+            pendingSharedFit = JSONObject().put("error", "No se ha podido recibir el FIT: ${e.message ?: "archivo no válido"}").toString()
+            true
+        }
     }
 
     private fun loadInitialUrl(intent: Intent?) {
@@ -164,6 +221,14 @@ class MainActivity : ComponentActivity() {
     }
 
     inner class WebBridge {
+        @JavascriptInterface
+        fun consumeSharedFit(): String {
+            if (!trusted(Uri.parse(webView.url ?: ""))) return ""
+            val payload = pendingSharedFit ?: return ""
+            pendingSharedFit = null
+            return payload
+        }
+
         @JavascriptInterface
         fun syncHealthConnect(accessToken: String, supabaseUrl: String) {
             lifecycleScope.launch {

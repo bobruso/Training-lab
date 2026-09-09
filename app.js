@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910home79';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910home79';
-import { createClient } from "./vendor/supabase.js?v=20260910home79";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910share80';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910share80';
+import { createClient } from "./vendor/supabase.js?v=20260910share80";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -269,15 +269,44 @@ function updateWeigh(){
  document.getElementById('weighTitle').textContent=isSun?'Hoy toca pesarse':'Próximo control';
  document.getElementById('weighText').textContent=isSun?'Idealmente al levantarte, tras ir al baño y antes de desayunar.':'Domingo por la mañana, en condiciones parecidas.';
 }
-window.registerFit=async function registerFit(){
- const f=document.getElementById('fitInput').files[0];
+let sharedFitImportRunning=false;
+window.consumeSharedFitFromAndroid=async function consumeSharedFitFromAndroid(){
+ if(sharedFitImportRunning)return;
+ if(!(window.TrainingLabAndroid&&typeof window.TrainingLabAndroid.consumeSharedFit==='function'))return;
+ let raw='';
+ try{raw=window.TrainingLabAndroid.consumeSharedFit()||'';}catch(e){window.TrainingLab.report('FIT compartido',e);return;}
+ if(!raw)return;
+ let payload;
+ try{payload=JSON.parse(raw);}catch(e){window.TrainingLab.report('FIT compartido','Respuesta nativa no válida');return;}
+ window.navTo('entrenos');
+ const result=document.getElementById('fitResult');
+ if(payload.error){if(result)result.textContent=payload.error;return;}
+ try{
+   const bin=atob(payload.base64||'');
+   const bytes=new Uint8Array(bin.length);
+   for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+   const name=/\.fit$/i.test(payload.name||'')?payload.name:`${payload.name||'coros-actividad'}.fit`;
+   const file=new File([bytes],name,{type:'application/octet-stream'});
+   const type=payload.activity_type||'football';
+   const sel=document.getElementById('fitType');if(sel)sel.value=type;
+   if(result)result.textContent='FIT recibido desde COROS · importando automáticamente como '+(type==='football'?'Fútbol':type)+'…';
+   sharedFitImportRunning=true;
+   await window.registerFit(file,type);
+ }catch(e){
+   if(result)result.textContent='No se ha podido importar el FIT compartido: '+(e?.message||e);
+   window.TrainingLab.report('FIT compartido',e);
+ }finally{sharedFitImportRunning=false;}
+};
+
+window.registerFit=async function registerFit(sharedFile=null,sharedType=null){
+ const f=sharedFile||document.getElementById('fitInput')?.files?.[0];
  const el=document.getElementById('fitResult');
  if(!f){el.textContent='Selecciona un archivo .fit.';return}
  if(!/\.fit$/i.test(f.name)||f.size>20*1024*1024){el.textContent='Selecciona un archivo .fit de hasta 20 MB.';return}
  if(!currentUser){
    el.textContent='Analizando FIT en este dispositivo…';
    try {
-     const {summary:s,report}=await analyzeLocalFit(await f.arrayBuffer(),document.getElementById('fitType')?.value||'football');
+     const {summary:s,report}=await analyzeLocalFit(await f.arrayBuffer(),sharedType||document.getElementById('fitType')?.value||'football');
      el.textContent=[
        'Analizado localmente · no guardado en una cuenta.',
        Math.floor(s.durationSec/60)+':'+String(s.durationSec%60).padStart(2,'0')+' min · '+s.distanceKm+' km · FC '+(s.avgHr??'—')+' / '+(s.maxHr??'—')+' ppm.',
@@ -289,7 +318,7 @@ window.registerFit=async function registerFit(){
    return;
  }
  el.textContent='1/3 · Subiendo FIT...';
- const fitType=document.getElementById('fitType')?.value||'football';
+ const fitType=sharedType||document.getElementById('fitType')?.value||'football';
  const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
  const path=`${currentUser.id}/${Date.now()}-${safe}`;
  const {error:upErr}=await supabase.storage.from('fit-files').upload(path,f,{contentType:'application/octet-stream',upsert:false});
@@ -420,6 +449,7 @@ async function applySession(session){
      queueAutoHealthConnectSync();
    }
  }
+ setTimeout(()=>window.consumeSharedFitFromAndroid?.(),350);
 }
 window.TrainingLab.passwordAuth=async(action,email,password)=>{
  let result;
@@ -1433,7 +1463,7 @@ function renderV5(){reorderHomeForContext();renderAdaptiveActivityResponse();
 }
 
 function renderAll(){renderToday();renderWeek();renderHistory();updateProgress();renderLatestAnalysis();renderV5()}
-document.getElementById('actDate').value=iso();document.getElementById('weightDate').value=iso();
+if(document.getElementById('actDate'))document.getElementById('actDate').value=iso();document.getElementById('weightDate').value=iso();
 document.getElementById('injuryDate').value=iso();
 document.getElementById('allRecipes').innerHTML=recipes.map(recipeCard).join('');
 document.body.dataset.section=document.querySelector('.page.on')?.id||'hoy';renderAll();setInterval(()=>{renderToday();renderSmartHome();renderCoachTasks();},30000);

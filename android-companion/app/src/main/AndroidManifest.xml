@@ -26,6 +26,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Recibir archivos FIT compartidos desde COROS y otras apps deportivas. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/vnd.ant.fit" />
+                <data android:mimeType="application/x-fit" />
+                <data android:mimeType="application/fit" />
+            </intent-filter>
             <!-- Magic-link de Supabase: vuelve al companion en vez de quedarse en Chrome. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

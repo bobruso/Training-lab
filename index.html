@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v7.9 · build home79">
-<script src="./runtime.js?v=20260910home79" defer></script>
+<meta name="build" content="v8.0 · build share80">
+<script src="./runtime.js?v=20260910share80" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260910home79">
+<link rel="stylesheet" href="./styles.css?v=20260910share80">
 </head>
 <body>
 <div class="app">
@@ -75,7 +75,7 @@
     <div class="home-decision-context" id="homeDecisionContext"></div>
     <div class="actions">
       <button class="btn" onclick="markTodayDone()">Hecho</button>
-      <button class="btn alt" onclick="openRegister()">Registrar actividad</button>
+      <button class="btn alt" onclick="navTo('entrenos')">Importar FIT</button>
       <button class="btn alt" id="homeCheckinBtn" onclick="navTo('checkin')">Check-in rápido</button>
     </div>
    </div>
@@ -143,24 +143,8 @@
  </section>
 
  <section class="page" id="registro">
-   <div class="sectionhead"><h2>Registrar</h2><span class="muted">lo que realmente has hecho manda sobre el plan</span></div>
+   <div class="sectionhead"><h2>Registrar</h2><span class="muted">peso, sensaciones y otros datos manuales</span></div>
    <div class="grid g2">
-    <div class="card">
-      <div class="eyebrow">Actividad</div><h2>Añadir entrenamiento</h2>
-      <div class="formrow">
-       <div class="field"><label>Fecha</label><input type="date" id="actDate"></div>
-       <div class="field"><label>Tipo</label><select id="actType"><option value="football">Fútbol</option><option value="run">Running</option><option value="gym">Gimnasio</option><option value="walk">Paseo/recuperación</option></select></div>
-       <div class="field"><label>Duración min</label><input id="actDur" type="number" min="0" value="60"></div>
-       <div class="field"><label>Esfuerzo RPE 1–10</label><input id="actRpe" type="number" min="1" max="10" value="6"></div>
-      </div>
-      <div class="formrow" style="margin-top:8px">
-       <div class="field"><label>Distancia km</label><input id="actDist" type="number" step=".01"></div>
-       <div class="field"><label>FC media</label><input id="actHr" type="number"></div>
-       <div class="field"><label>FC máxima</label><input id="actHrMax" type="number"></div>
-       <div class="field"><label>Calorías</label><input id="actKcal" type="number"></div>
-      </div>
-      <div class="actions" style="margin-top:12px"><button class="btn" onclick="saveActivity()">Guardar actividad</button></div>
-    </div>
     <div class="card">
       <div class="eyebrow">Peso</div><h2>Control corporal</h2>
       <div class="formrow">
@@ -190,7 +174,7 @@
        <div class="field"><label>Tipo</label><select id="fitType"><option value="football">Fútbol</option><option value="run">Running</option><option value="gym">Fuerza / gimnasio</option></select></div>
        <div class="field"><label>Archivo .fit</label><input type="file" id="fitInput" accept=".fit"></div>
       </div>
-      <p class="muted small">Sin sesión, el FIT se analiza en este dispositivo. Con sesión iniciada, se guarda en tu cuenta y se analiza automáticamente. En fútbol/running extrae GPS, FC, zonas, velocidad y esfuerzos; en fuerza intentará además leer mensajes de sets si el dispositivo los incluye.</p>
+      <p class="muted small">También puedes exportar un .FIT desde COROS y elegir Training Lab en “Compartir con otras apps”: la APK lo recibirá e importará automáticamente. Sin sesión, el FIT se analiza en este dispositivo. Con sesión iniciada, se guarda en tu cuenta y se analiza automáticamente.</p>
       <button class="btn" onclick="registerFit()">Analizar FIT</button><div id="fitResult" class="small muted" style="margin-top:8px"></div>
     </div>
     <div class="card"><div class="eyebrow">Running</div><h2>Base aeróbica</h2><p class="muted">Ritmo conversacional. El indicador clave será correr más rápido al mismo coste cardíaco, no perseguir pulsaciones artificialmente bajas.</p><div class="score">40–60'</div></div>
@@ -406,6 +390,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260910home79"></script>
+<script type="module" src="./app.js?v=20260910share80"></script>
 </body>
 </html>
