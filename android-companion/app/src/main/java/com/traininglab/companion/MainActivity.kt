@@ -167,7 +167,7 @@ class MainActivity : ComponentActivity() {
             // Training Lab conserva como sueño principal la sesión más larga y guarda el resto como siestas.
             val sleepJson = JSONArray()
             val groupedSleep = sleepRecords.groupBy {
-                LocalDate.ofInstant(it.endTime, ZoneId.systemDefault())
+                it.endTime.atZone(ZoneId.systemDefault()).toLocalDate()
             }
             for ((day, sessionsForDay) in groupedSleep) {
                 val main = sessionsForDay.maxByOrNull { Duration.between(it.startTime, it.endTime) } ?: continue
@@ -257,7 +257,7 @@ class MainActivity : ComponentActivity() {
                 val o = JSONObject()
                     .put("external_id", s.metadata.id)
                     .put("source_app", s.metadata.dataOrigin.packageName)
-                    .put("activity_date", LocalDate.ofInstant(s.startTime, ZoneId.systemDefault()).toString())
+                    .put("activity_date", s.startTime.atZone(ZoneId.systemDefault()).toLocalDate().toString())
                     .put("started_at", s.startTime.toString())
                     .put("activity_type", type)
                     .put("title", s.title ?: "Health Connect")
