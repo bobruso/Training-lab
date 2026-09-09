@@ -48,3 +48,7 @@ node scripts/production-smoke.mjs
 Comprueba la web real a 390 y 1440 px y deja evidencia en `test-results/` (ignorado por Git). Abrir `https://bobruso.github.io/Training-lab/?debug=1` para versión, caché, conectividad, sesión, conteos y último error.
 
 Quedan fuera: entrega real de correo, allowlist de Auth, FIT reales del PACE 4 y permisos/sync del teléfono. Véase `CODEX_BLOCKERS.md`.
+
+## Validación manual de un FIT privado
+
+Ejecutar `node scripts/inspect-fit.mjs "RUTA_AL_ARCHIVO.fit"` desde la raíz. Usa el parser real y el handler de producción con Storage y base de datos simulados en memoria: no sube archivos ni escribe en Supabase. La salida contiene métricas personales; no publicarla ni añadir el FIT a Git. No valida JWT real, RLS ni el flujo de subida. La FC máxima del perfil no se simula: las zonas resultantes son estimadas.

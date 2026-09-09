@@ -104,3 +104,7 @@ Ver `CODEX_BLOCKERS.md`: validación física Android/COROS, entrega real del mag
 ## Riesgos técnicos
 
 Los scores son heurísticas transparentes, no mediciones fisiológicas validadas. La recuperación genérica de una sesión sin series detalladas es aproximada. Las porciones sugeridas no miden la ingesta real. El histórico local previo a esta sesión no tiene identificación de propietario y se ha conservado sin migrarlo automáticamente entre cuentas. La aplicación sigue concentrada en un módulo grande; las nuevas reglas puras viven en `domain.js` y tienen tests. No se ha completado todo el alcance P0–P10: se priorizó estabilidad, backend y funcionalidades deportivas comprobables.
+
+## Validación con el usuario presente
+
+El usuario confirma recepción y retorno del magic link en web. Se ejecutó el handler local con un FIT real de fútbol COROS, con CRC estricto: procesamiento correcto, 3614 muestras y track disponible. Distancia, tiempo y FC coinciden con el resumen incluido en el archivo. No se ha importado el archivo a Supabase ni se han publicado sus coordenadas. Se añadió `scripts/inspect-fit.mjs` para repetir esta comprobación con archivos privados. Falta validación de la subida autenticada y FIT de running/fuerza.

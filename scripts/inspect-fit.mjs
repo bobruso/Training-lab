@@ -1,0 +1,14 @@
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {stripTypeScriptTypes} from 'node:module';
+import FitParser from 'fit-file-parser';
+if (!process.argv[2]) throw new Error('Uso: node scripts/inspect-fit.mjs RUTA.fit');
+const blob=readFileSync(process.argv[2]);
+const parsed=await new FitParser({mode:'list',speedUnit:'km/h',lengthUnit:'km',force:false}).parseAsync(blob);
+const writes=[];let handler;
+const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},storage:{from:()=>({download:async()=>({data:new Blob([blob])})})},from:table=>{const q={select(){return q},eq(){return q},single:async()=>({data:table==='fit_files'?{id:'fit',user_id:'owner',activity_id:'activity',storage_path:'owner/local.fit'}:{id:'activity',activity_type:'football'}}),maybeSingle:async()=>({data:null}),update(row){writes.push({table,row});return q},upsert(row){writes.push({table,row});return q},then(resolve){return Promise.resolve({error:null}).then(resolve)}};return q}};
+const source=readFileSync('supabase/functions/analyze-fit/index.ts','utf8').replace(/^import .*;\r?\n/gm,'').replace('export default handler;','');
+vm.runInNewContext(stripTypeScriptTypes(source),{Response,Request,TextDecoder,createClient:()=>client,FitParser,Deno:{env:{get:()=>''},serve:fn=>handler=fn}});
+const response=await handler(new Request('http://local',{method:'POST',headers:{Authorization:'Bearer local'},body:JSON.stringify({fit_file_id:'fit'})}));
+if (!response.ok) process.exitCode=1;
+console.log(JSON.stringify({bytes:blob.length,session:parsed.sessions,records:parsed.records?.length,result:await response.json(),hrZones:writes.find(x=>x.table==='activity_analysis')?.row.hr_zones},null,2));
