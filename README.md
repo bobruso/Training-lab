@@ -1,94 +1,187 @@
-# Training Lab
+# Training Lab v6
 
-Web personal adaptativa para combinar fútbol, fuerza, running, nutrición, recuperación y análisis de archivos FIT.
+Training Lab es una app personal adaptativa para combinar:
 
-## Estado actual
+- fútbol,
+- fuerza / hipertrofia,
+- running aeróbico,
+- sueño y HRV,
+- alimentación,
+- recuperación,
+- molestias,
+- seguimiento FIT,
+- gamificación personal.
 
-- Plan diario adaptativo según día, fatiga, descansos y pachangas.
-- 3 sesiones de fuerza + 2 estímulos aeróbicos como objetivos desplazables.
-- Pachangas tratadas como eventos fijos.
-- Nutrición periodizada según carga.
-- Registro de peso y actividades.
-- Login por email con Supabase.
-- Datos sincronizados entre dispositivos.
-- Bucket FIT privado por usuario.
-- Análisis automático de FIT mediante Supabase Edge Function `analyze-fit`.
-- Métricas: distancia, tiempo, moving time, FC, zonas FC, velocidad, velocidad robusta, alta intensidad, sprints relativos, sprints >18 km/h, aceleraciones/deceleraciones, primeros 10 min y track GPS.
-- Resumen automático y vista heatmap relativa.
+El principio de la app es sencillo: **la Home debe decir qué conviene hacer hoy, qué comer y qué necesita atención**, usando lo que realmente ha ocurrido durante la semana.
 
-## GitHub Pages
+## Web
 
-1. Crea un repositorio nuevo, por ejemplo `training-lab`.
-2. Sube **todo el contenido de esta carpeta a la raíz** del repositorio.
-3. En GitHub: Settings → Pages.
-4. Source: `Deploy from a branch`.
-5. Branch: `main`, carpeta `/ (root)`.
-6. Guarda y abre la URL que proporciona GitHub Pages.
+La raíz del repositorio es una web estática compatible con GitHub Pages:
 
-No hace falta ejecutar npm ni compilar nada.
+- `index.html`
+- `styles.css`
+- `app.js`
+- `manifest.webmanifest`
+- `service-worker.js`
+- `privacy.html`
+- `.nojekyll`
+
+No necesita npm, Vite ni compilación.
+
+## Funciones principales
+
+### Hoy
+- día y hora reales;
+- ingesta que corresponde por horario;
+- entrenamiento recomendado;
+- pachanga sí/no;
+- botón `HOY DESCANSO`;
+- readiness;
+- sueño reciente;
+- mapa de recuperación;
+- tareas prioritarias;
+- modo día de partido.
+
+### Planificador adaptativo
+Las pachangas son eventos fijos. Fuerza y running se pueden recolocar según:
+- sesiones ya realizadas,
+- fatiga,
+- readiness,
+- sueño,
+- recuperación de piernas,
+- molestias activas,
+- fútbol próximo.
+
+### Sueño
+La referencia individual está configurada en **05:00–13:00 con tolerancia ±1 h**.
+
+Se pueden usar:
+- duración,
+- profundo / ligero / REM,
+- despertares,
+- siestas,
+- Sleep Score,
+- HRV,
+- FC en reposo,
+- consistencia contra el propio horario.
+
+### FIT
+Al subir un `.fit` se elige:
+- Fútbol
+- Running
+- Fuerza / gimnasio
+
+El archivo se guarda de forma privada y se procesa con la Edge Function `analyze-fit`.
+
+### Fuerza
+- registro manual de series;
+- kg, reps, RIR y RPE;
+- historial por ejercicio;
+- comparación;
+- importación de series desde FIT si el dispositivo las incluye.
+
+### Test diario
+Registra:
+- energía,
+- agujetas,
+- estrés,
+- ánimo,
+- motivación,
+- sensación de sueño,
+- alcohol,
+- cafeína tardía,
+- carbohidratos,
+- hidratación.
+
+Se usa para construir correlaciones personales a largo plazo.
+
+### Nutrición
+- macros dinámicos según carga;
+- proteína objetivo;
+- carbohidratos diferentes para descanso / entreno / fútbol;
+- meal planner;
+- macros restantes;
+- modo gasolina de partido;
+- acceso a búsquedas de Cookidoo.
+
+### Recuperación / molestias
+- mapa corporal;
+- rutina postpartido;
+- preguntas de señales de alarma;
+- modificación prudente del entrenamiento.
+
+No es un sistema de diagnóstico médico.
+
+### Informe semanal
+Supabase genera automáticamente el informe los domingos después de la ventana habitual de sueño.
+
+### Training Quest
+Sistema ARPG personal:
+- XP,
+- niveles,
+- Fuerza,
+- Resistencia,
+- Recuperación,
+- logros,
+- inventario,
+- objetos con rareza,
+- misiones pendientes.
+
+Los objetos afectan únicamente a la capa de juego, no alteran decisiones médicas ni fisiológicas.
+
+## Health Connect
+
+Una web de GitHub Pages no puede leer Health Connect directamente. Por eso se incluye `android-companion/`.
+
+El companion:
+1. abre la misma web dentro de un WebView;
+2. solicita permisos nativos de Health Connect;
+3. lee sueño y entrenamientos recientes;
+4. envía los datos al endpoint privado de Supabase;
+5. devuelve el resultado a la web.
+
+COROS incluye Health Connect entre sus integraciones compatibles para Android. Configura COROS para compartir allí los datos disponibles.
+
+## Companion Android
+
+Antes de compilar:
+
+1. Publica la web.
+2. Abre:
+   `android-companion/app/src/main/res/values/strings.xml`
+3. Sustituye:
+   `https://TU_USUARIO.github.io/training-lab/`
+   por la URL real.
+4. En Supabase Auth añade:
+   - la URL de GitHub Pages;
+   - `traininglab://auth`.
+5. Abre `android-companion` en Android Studio y compila.
+
+El código fuente está preparado, pero el APK no se ha compilado en este entorno porque aquí no hay Android SDK/Gradle completo.
 
 ## Supabase
 
-El frontend ya apunta al proyecto separado `Training Lab`.
+El backend ya está desplegado en un proyecto separado de Patxanguilles.
 
-La clave incluida en `app.js` es una **publishable key de frontend**, no una `service_role`.
-
-El backend ya tiene RLS y el bucket `fit-files` es privado.
-
-### Importante para el login por email
-
-Cuando conozcas la URL definitiva de GitHub Pages, añádela en Supabase:
-
-Authentication → URL Configuration → Redirect URLs
-
-Ejemplo:
-
-`https://TU_USUARIO.github.io/training-lab/**`
-
-Así los magic links pueden volver correctamente a la aplicación.
-
-## Primer FIT
-
-Para hacer la primera prueba completa:
-
-1. Abre la web publicada.
-2. Inicia sesión con tu email.
-3. Sube un `.fit` de una pachanga.
-4. Espera a que aparezca `Analizado`.
-5. En **Progreso** aparecerán el informe y el track/heatmap.
+Consulta `supabase/README.md`.
 
 ## Seguridad
 
-No subas nunca al repositorio:
-- `service_role`
-- secret keys
-- contraseñas de base de datos
-- JWT privados
+Nunca subir:
+- `service_role`,
+- secret keys,
+- contraseña de base de datos,
+- tokens privados.
 
-La web solo contiene la publishable key permitida para cliente.
+La publishable key del frontend sí está diseñada para cliente web cuando RLS está correctamente configurado.
 
+## Pruebas recomendadas
 
-## V5 — módulos añadidos
-
-- Sueño adaptado al horario personal 05:00–13:00 ±1 h.
-- Estructura para COROS PACE 4: Sleep Score, fases, siestas, HRV nocturna.
-- Readiness diario.
-- Test diario de energía, agujetas, estrés, ánimo, motivación, sueño, alcohol, cafeína, carbohidratos e hidratación.
-- Mapa corporal de recuperación.
-- Registro detallado de series de fuerza.
-- Comparador de partidos/running y comparador de fuerza.
-- Meal Planner con macros restantes y comidas del día.
-- Modo Día de Partido.
-- Recuperación postpartido.
-- Registro de molestias con triaje de señales de alarma y adaptación de entrenamiento (no diagnóstico).
-- Informe semanal.
-- Sistema RPG: XP, niveles, logros e inventario.
-- PWA instalable.
-
-### Health Connect
-
-La web ya está estructurada para recibir sus datos, pero Health Connect requiere el SDK Android; una web de GitHub Pages no puede leer Health Connect directamente. La fase Android debe envolver esta web o crear una app companion nativa.
-
-### COROS
-
-COROS es compatible con Health Connect. La sincronización directa vía API COROS requiere autorización de cuenta/API. Mientras se configura, se puede usar registro manual y FIT.
+1. Publicar GitHub Pages.
+2. Entrar con magic link.
+3. Subir un FIT real de una pachanga.
+4. Subir un FIT real de fuerza.
+5. Registrar 2–3 noches manuales o sincronizarlas con Health Connect.
+6. Completar varios check-ins.
+7. Verificar que `Hoy` cambia al variar fatiga / pachanga / descanso.
+8. Construir el companion y hacer la primera sincronización Health Connect.

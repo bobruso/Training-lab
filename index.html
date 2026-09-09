@@ -46,6 +46,10 @@
    <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
    <div class="card metric"><div class="k">Nivel RPG</div><div class="v" id="todayLevel">1</div><div class="muted" id="todayXp">0 XP</div></div>
   </div>
+  <div class="section card module-hero">
+   <div class="sectionhead"><div><div class="eyebrow">Coach diario</div><h2 style="margin:3px 0 0">Lo que necesita tu atención</h2></div><span class="muted">priorizado automáticamente</span></div>
+   <div id="coachTasks"></div>
+  </div>
   <div class="section grid g2">
    <div class="card">
     <div class="eyebrow">Te toca</div>
@@ -161,13 +165,20 @@
  <section class="page" id="entrenos">
    <div class="sectionhead"><h2>Entrenamientos</h2><span class="muted">fútbol · running · gimnasio</span></div>
    <div class="grid g3">
-    <div class="card"><div class="eyebrow">Fútbol · nube privada</div><h2>FIT del partido</h2>
-      <div class="field"><label>Archivo .fit</label><input type="file" id="fitInput" accept=".fit"></div>
-      <p class="muted small">Con sesión iniciada, el FIT se sube al bucket privado y se analiza automáticamente: distancia, FC, zonas, velocidad, sprints, alta intensidad y track GPS.</p>
+    <div class="card"><div class="eyebrow">FIT · nube privada</div><h2>Importar entrenamiento</h2>
+      <div class="formrow">
+       <div class="field"><label>Tipo</label><select id="fitType"><option value="football">Fútbol</option><option value="run">Running</option><option value="gym">Fuerza / gimnasio</option></select></div>
+       <div class="field"><label>Archivo .fit</label><input type="file" id="fitInput" accept=".fit"></div>
+      </div>
+      <p class="muted small">Con sesión iniciada, el FIT se sube al bucket privado y se analiza automáticamente. En fútbol/running extrae GPS, FC, zonas, velocidad y esfuerzos; en fuerza intentará además leer mensajes de sets si el dispositivo los incluye.</p>
       <button class="btn" onclick="registerFit()">Subir FIT</button><div id="fitResult" class="small muted" style="margin-top:8px"></div>
     </div>
     <div class="card"><div class="eyebrow">Running</div><h2>Base aeróbica</h2><p class="muted">Ritmo conversacional. El indicador clave será correr más rápido al mismo coste cardíaco, no perseguir pulsaciones artificialmente bajas.</p><div class="score">40–60'</div></div>
-    <div class="card"><div class="eyebrow">COROS</div><h2>Sincronización</h2><p class="muted">La versión conectada podrá importar automáticamente actividades y FIT originales desde COROS. Requiere autorización de tu cuenta.</p><span class="tag">Preparado para conectar</span></div>
+    <div class="card"><div class="eyebrow">Sincronización</div><h2>COROS + Health Connect</h2>
+      <div id="syncSources"></div>
+      <div class="actions" style="margin-top:10px"><button class="btn" onclick="syncHealthConnect()">Sincronizar Health Connect</button><button class="btn alt" onclick="navTo('sueno')">Ver sueño</button></div>
+      <p class="muted small">En la web normal, el botón explica cómo instalar el companion Android. Dentro del companion, dispara la lectura nativa de Health Connect y la sincroniza con Supabase.</p>
+    </div>
    </div>
  </section>
 
@@ -187,7 +198,7 @@
   <div class="grid g3">
    <div class="card module-hero"><div class="eyebrow">Último sueño</div><div class="sleep-ring" id="sleepRing" style="--pct:0%"><b id="sleepScore">—</b></div><p id="sleepSummary" class="muted">Sin datos todavía.</p></div>
    <div class="card"><div class="eyebrow">Tu cronotipo operativo</div><h2>05:00 → 13:00</h2><p class="muted">La app considera normal una variación aproximada de ±1 hora. La consistencia se calcula contra tu propio horario, no contra acostarse antes de medianoche.</p><div id="sleepConsistency" class="notice">Pendiente de datos.</div></div>
-   <div class="card"><div class="eyebrow">COROS PACE 4</div><h2>Sleep + HRV</h2><p class="muted">PACE 4 puede aportar Sleep Score, sueño profundo/ligero/REM, despertares, siestas y HRV nocturna.</p><button class="btn alt" onclick="alertCorosSleep()">Sincronizar COROS</button><div id="corosSleepStatus" class="small muted" style="margin-top:8px">La conexión de cuenta debe autorizarse.</div></div>
+   <div class="card"><div class="eyebrow">COROS PACE 4</div><h2>Sleep + HRV</h2><p class="muted">PACE 4 puede aportar Sleep Score, sueño profundo/ligero/REM, despertares, siestas y HRV nocturna.</p><button class="btn alt" onclick="alertCorosSleep()">Estado COROS</button><button class="btn alt" style="margin-left:6px" onclick="syncHealthConnect()">Health Connect</button><div id="corosSleepStatus" class="small muted" style="margin-top:8px">La conexión de cuenta debe autorizarse.</div><div id="sleepSyncStatus" class="small muted" style="margin-top:6px"></div></div>
   </div>
   <div class="section grid g2">
    <div class="card"><div class="eyebrow">Registrar sueño manual</div><h2>Fallback / corrección</h2>
@@ -212,7 +223,7 @@
    <div class="field" style="margin-top:12px"><label>Notas</label><input id="checkinNotes" placeholder="Piernas pesadas, mucho trabajo, siesta..."></div>
    <button class="btn" style="margin-top:12px" onclick="saveCheckin()">Guardar test</button>
   </div>
-  <div class="card section"><div class="eyebrow">Correlaciones futuras</div><h2>Qué aprenderá Training Lab</h2><p class="muted">Ejemplos: cómo cambia tu FC en partidos después de dormir ≥7 h; si rendiste mejor con más carbohidrato; cuánto afecta fuerza de piernas <24 h antes de fútbol; relación entre estrés, HRV y recuperación.</p></div>
+  <div class="card section"><div class="eyebrow">Correlaciones</div><h2>Lo que Training Lab empieza a aprender</h2><div id="correlationInsights" class="muted">Necesitamos acumular check-ins y entrenamientos.</div></div>
  </section>
 
  <section class="page" id="recuperacion">
@@ -250,13 +261,14 @@
    <div class="card metric"><div class="k">Recuperación</div><div class="v" id="statRecovery">1</div></div>
   </div>
   <div class="section grid g2">
-   <div class="card"><div class="eyebrow">Inventario</div><h2>Objetos encontrados</h2><div class="inventory" id="inventory"></div></div>
+   <div class="card"><div class="eyebrow">Inventario</div><h2>Objetos encontrados</h2><div class="inventory" id="inventory"></div><div id="equippedItems" class="muted small" style="margin-top:10px"></div></div>
    <div class="card"><div class="eyebrow">Logros</div><h2>Premios personales</h2><div id="achievementList"></div><button class="btn alt" onclick="checkAchievements()">Comprobar objetivos</button></div>
   </div>
+  <div class="card section"><div class="eyebrow">Misiones pendientes</div><h2>Confirma lo que la app no puede medir sola</h2><div id="rpgQuests"></div></div>
  </section>
 
  <section class="page" id="progreso">
-   <div class="sectionhead"><h2>Progreso</h2><span class="muted">compararemos producción y coste</span></div><div class="card" id="weeklyReportCard"><div class="eyebrow">Informe semanal</div><h2 id="weeklyReportTitle">Domingo: revisión semanal</h2><div id="weeklyReport" class="muted weekreport">Se generará con tus actividades, sueño, peso, comidas y check-ins.</div><button class="btn alt" style="margin-top:10px" onclick="generateWeeklyReport()">Generar ahora</button></div><div class="notice" id="syncNotice">Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.</div>
+   <div class="sectionhead"><h2>Progreso</h2><span class="muted">compararemos producción y coste</span></div><div class="card" id="weeklyReportCard"><div class="eyebrow">Informe semanal</div><h2 id="weeklyReportTitle">Informe automático de domingo</h2><div id="weeklyReport" class="muted weekreport">El backend genera una revisión automática cada domingo después de tu hora habitual de despertar.</div><button class="btn alt" style="margin-top:10px" onclick="generateWeeklyReport()">Generar ahora</button></div><div class="notice" id="syncNotice">Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.</div>
    <div class="grid g4">
     <div class="card metric"><div class="k">Peso actual</div><div class="v" id="currentWeight">70,0 kg</div></div>
     <div class="card metric"><div class="k">Carga 7 días</div><div class="v" id="load7">0</div><div class="muted">min × RPE</div></div>
@@ -283,6 +295,7 @@
     </div>
    </div>
  </section>
+<div style="text-align:center;margin:28px 0 6px"><a class="muted small" href="./privacy.html">Privacidad y Health Connect</a></div>
 </div>
 
 <div class="bottom">

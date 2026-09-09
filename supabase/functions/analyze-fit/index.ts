@@ -79,6 +79,88 @@ function makeReport(m: any) {
   return {analysis, strengths, improvements};
 }
 
+function textValue(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    for (const k of ["name","value","label","key"]) {
+      if (o[k] != null) return String(o[k]);
+    }
+  }
+  return null;
+}
+
+function inferMuscleGroup(...parts: unknown[]): string | null {
+  const t = parts.map(textValue).filter(Boolean).join(" ").toLowerCase().replace(/[_-]+/g," ");
+  if (!t) return null;
+  if (/bench|chest|pectoral|push up/.test(t)) return "pecho";
+  if (/row|pull up|pullup|lat pull|back|espalda/.test(t)) return "espalda";
+  if (/shoulder|deltoid|overhead|hombro/.test(t)) return "hombro";
+  if (/bicep/.test(t)) return "biceps";
+  if (/tricep/.test(t)) return "triceps";
+  if (/calf|gemelo/.test(t)) return "gemelos";
+  if (/abdom|core|plank/.test(t)) return "core";
+  if (/deadlift|romanian|hamstring|isquio/.test(t)) return "isquios";
+  if (/glute|hip thrust/.test(t)) return "gluteo";
+  if (/squat|leg press|lunge|quadricep|extension/.test(t)) return "cuadriceps";
+  return null;
+}
+
+function normalizeStrengthSets(parsed: any) {
+  const messages = parsed?.messages && typeof parsed.messages === "object" ? parsed.messages : {};
+  const raw: any[] = [
+    ...(Array.isArray(messages.set) ? messages.set : []),
+    ...(Array.isArray(messages.exercise_set) ? messages.exercise_set : []),
+  ];
+  return raw.map((x:any, i:number) => {
+    const reps = num(x.repetitions ?? x.reps ?? x.num_reps);
+    const weight = num(x.weight ?? x.weight_kg ?? x.resistance);
+    const setType = textValue(x.set_type ?? x.type);
+    const category = textValue(x.category ?? x.exercise_category);
+    const subtype = textValue(x.category_subtype ?? x.exercise_name ?? x.exercise_subtype);
+    const start = ts(x.start_time ?? x.timestamp);
+    const duration = num(x.duration ?? x.total_timer_time);
+    const exercise = subtype || category || "Serie FIT";
+    return {
+      index: Number(x.message_index ?? i + 1),
+      performed_at: start ? new Date(start).toISOString() : null,
+      exercise,
+      muscle_group: inferMuscleGroup(category, subtype, exercise),
+      reps: reps != null ? Math.round(reps) : null,
+      weight_kg: weight,
+      set_type: setType,
+      duration_sec: duration,
+      category,
+      category_subtype: subtype,
+      raw: {
+        message_index: x.message_index ?? null,
+        weight_display_unit: textValue(x.weight_display_unit),
+      },
+    };
+  }).filter((x:any) =>
+    x.reps != null || x.weight_kg != null || x.category != null || x.category_subtype != null || x.set_type != null
+  );
+}
+
+function makeStrengthReport(m: any) {
+  const strengths: string[] = [];
+  const improvements: string[] = [];
+  const sets = Number(m.strengthSetCount || 0);
+  const reps = Number(m.totalReps || 0);
+  const volume = Number(m.totalVolumeKg || 0);
+  if (sets) strengths.push(`Sesión registrada con ${sets} series${reps ? ` y ${reps} repeticiones` : ""}.`);
+  if (volume > 0) strengths.push(`Volumen externo registrado: ${Math.round(volume)} kg·rep.`);
+  if (m.avgHr) strengths.push(`Respuesta cardiovascular registrada durante la fuerza: ${m.avgHr} ppm de media.`);
+  if (!sets) improvements.push("Este FIT no contiene detalle reconocible de series; registra las series manualmente si quieres comparar progresión de fuerza.");
+  else improvements.push("Compara próximas sesiones del mismo ejercicio por carga, repeticiones, RIR/RPE y volumen total.");
+  const analysis = sets
+    ? `Entrenamiento de fuerza con ${sets} series detectadas${reps ? ` y ${reps} repeticiones` : ""}. ${volume > 0 ? `El volumen registrado fue de ${Math.round(volume)} kg·rep. ` : ""}Training Lab conservará cada serie para comparar la progresión por ejercicio.`
+    : `El FIT se ha procesado como entrenamiento de fuerza, pero el dispositivo no ha incluido mensajes de series suficientemente detallados. Se conservan duración, frecuencia cardíaca y demás métricas disponibles.`;
+  return { analysis, strengths, improvements };
+}
+
 export default {
   async fetch(req: Request) {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -112,6 +194,14 @@ export default {
     if (fitRow.user_id !== userId) return json({ error: "Forbidden" }, 403);
     if (!fitRow.activity_id || !fitRow.storage_path) return json({ error: "FIT record is incomplete" }, 400);
 
+    const { data: activityRow, error: activityError } = await supabase
+      .from("activities")
+      .select("id,activity_type")
+      .eq("id", fitRow.activity_id)
+      .single();
+    if (activityError || !activityRow) return json({ error: "Activity record not found" }, 404);
+    const activityType = String(activityRow.activity_type || "football");
+
     await supabase.from("fit_files").update({ parse_status: "processing", parse_error: null }).eq("id", fitFileId);
 
     try {
@@ -124,7 +214,10 @@ export default {
       const records: any[] = Array.isArray(parsed.records) ? parsed.records : [];
       const sessions: any[] = Array.isArray(parsed.sessions) ? parsed.sessions : [];
       const session = sessions[0] || {};
-      if (!records.length && !sessions.length) throw new Error("No activity records found in FIT");
+      const strengthSets = normalizeStrengthSets(parsed);
+      const fitSport = textValue(session.sport ?? parsed?.activity?.sport ?? parsed?.sport);
+      const fitSubSport = textValue(session.sub_sport ?? session.subSport ?? parsed?.activity?.sub_sport);
+      if (!records.length && !sessions.length && !strengthSets.length) throw new Error("No activity records found in FIT");
 
       const pts = records.map((r: any) => {
         const speed = num(r.enhanced_speed ?? r.speed) ?? 0;
@@ -192,14 +285,22 @@ export default {
       const step=Math.max(1,Math.ceil(pts.length/1200));
       const trackPoints=pts.filter((_:any,i:number)=>i%step===0).map((p:any)=>({t:p.t,lat:p.lat,lon:p.lon,hr:p.hr,speed_kmh:+p.speed.toFixed(2)})).filter((p:any)=>p.lat!=null&&p.lon!=null);
 
+      const totalReps = strengthSets.reduce((sum:number,x:any)=>sum+(x.reps||0),0);
+      const totalVolumeKg = strengthSets.reduce((sum:number,x:any)=>sum+((x.reps||0)*(x.weight_kg||0)),0);
+      const exerciseNames = [...new Set(strengthSets.map((x:any)=>x.exercise).filter(Boolean))].slice(0,20);
+
       const summary = {
+        activityType, fitSport, fitSubSport,
+        strengthSetCount:strengthSets.length, totalReps, totalVolumeKg:+totalVolumeKg.toFixed(1), exercises:exerciseNames,
         distanceKm:+distanceKm.toFixed(3), durationSec:Math.round(totalDurationSec), movingTimeSec:Math.round(movingSec),
         avgHr:avgHr||null, maxHr:maxHr||null, calories:calories||null, rawTopKmh:+rawTop.toFixed(2), robustTopKmh:+robustTop.toFixed(2), p99TopKmh:+p99.toFixed(2),
         relativeSprintCutoffKmh:+relativeCutoff.toFixed(2), sprintCount, absoluteSprintCount, highIntensityM:+highIntensityM.toFixed(1), highIntensityShare:+highIntensityShare.toFixed(4),
         metersPerMovingMin:+metersPerMovingMin.toFixed(1), accelerations:accelCount, decelerations:decelCount, first10MinM:+first10MinM.toFixed(1), elevationGainM:+elevationGainM.toFixed(1), referenceMaxHr:Math.round(refMaxHr),
         hrZone45Share:+hrZone45Share.toFixed(4), parser:"fit-file-parser@5.0.2"
       };
-      const report=makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});
+      const report = activityType === "gym"
+        ? makeStrengthReport(summary)
+        : makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});
       const startMs = pts[0]?.t ?? ts(session.start_time ?? session.timestamp);
       const startedAt = startMs ? new Date(startMs).toISOString() : null;
       const activityDate = startedAt ? startedAt.slice(0,10) : new Date().toISOString().slice(0,10);
@@ -212,14 +313,46 @@ export default {
       }).eq("id",fitRow.activity_id);
       if(actError) throw new Error(actError.message);
 
+      if (activityType === "gym") {
+        const { error: clearSetsError } = await supabase
+          .from("strength_sets")
+          .delete()
+          .eq("activity_id", fitRow.activity_id)
+          .eq("user_id", userId);
+        if (clearSetsError) throw new Error(clearSetsError.message);
+
+        if (strengthSets.length) {
+          const rows = strengthSets.slice(0,500).map((x:any, idx:number) => ({
+            user_id:userId,
+            activity_id:fitRow.activity_id,
+            performed_at:x.performed_at || startedAt || new Date().toISOString(),
+            exercise:x.exercise,
+            muscle_group:x.muscle_group,
+            set_number:idx+1,
+            reps:x.reps,
+            weight_kg:x.weight_kg,
+            metadata:{
+              source:"fit",
+              set_type:x.set_type,
+              duration_sec:x.duration_sec,
+              category:x.category,
+              category_subtype:x.category_subtype,
+              ...x.raw,
+            },
+          }));
+          const { error: setInsertError } = await supabase.from("strength_sets").insert(rows);
+          if (setInsertError) throw new Error(setInsertError.message);
+        }
+      }
+
       const { error: analysisError } = await supabase.from("activity_analysis").upsert({
-        activity_id:fitRow.activity_id,user_id:userId,analysis_version:"fit-v1",summary,hr_zones:hrZones,speed_zones:speedZones,track_points:trackPoints,report,sample_count:pts.length,analyzed_at:new Date().toISOString(),updated_at:new Date().toISOString()
+        activity_id:fitRow.activity_id,user_id:userId,analysis_version:"fit-v2",summary,hr_zones:hrZones,speed_zones:speedZones,track_points:trackPoints,report,sample_count:pts.length,analyzed_at:new Date().toISOString(),updated_at:new Date().toISOString()
       },{onConflict:"activity_id"});
       if(analysisError) throw new Error(analysisError.message);
 
-      await supabase.from("fit_files").update({parser_version:"fit-v1 / fit-file-parser@5.0.2",parse_status:"parsed",parse_error:null,analyzed_at:new Date().toISOString(),analysis_activity_id:fitRow.activity_id}).eq("id",fitFileId);
+      await supabase.from("fit_files").update({parser_version:"fit-v2 / fit-file-parser@5.0.2",parse_status:"parsed",parse_error:null,analyzed_at:new Date().toISOString(),analysis_activity_id:fitRow.activity_id}).eq("id",fitFileId);
 
-      return json({ ok:true, activity_id:fitRow.activity_id, summary, report, track_points:trackPoints.length });
+      return json({ ok:true, activity_id:fitRow.activity_id, summary, report, track_points:trackPoints.length, strength_sets:strengthSets.length });
     } catch (e) {
       const message=e instanceof Error?e.message:String(e);
       await supabase.from("fit_files").update({parse_status:"error",parse_error:message}).eq("id",fitFileId);

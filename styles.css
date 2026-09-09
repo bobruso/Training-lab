@@ -87,3 +87,12 @@ h1,h2,h3,p{margin-top:0}h2{letter-spacing:-.03em}.muted{color:var(--muted)}
 .redflag{background:#2e1719;border-left:3px solid var(--red);padding:12px;border-radius:10px}
 .weekreport{white-space:pre-line}
 @media(max-width:700px){.body-wrap,.rpg-head{grid-template-columns:1fr}.question-grid,.compare-grid{grid-template-columns:1fr}.inventory{grid-template-columns:repeat(3,1fr)}}
+
+.coach-task{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.coach-task:last-child{border-bottom:0}.coach-task .task-main{display:flex;gap:10px;align-items:flex-start}.task-icon{font-size:20px;line-height:1}
+.source-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.source-row:last-child{border-bottom:0}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#66747c}.status-dot.ok{background:var(--green)}.status-dot.wait{background:var(--yellow)}
+.delta-good{color:var(--green)}.delta-bad{color:var(--red)}.delta-neutral{color:var(--muted)}
+.quest{padding:12px;border:1px solid var(--line);border-radius:13px;background:#101619;margin-top:8px}
+.quest .actions{margin-top:8px}.insight{padding:10px 0;border-bottom:1px solid var(--line)}.insight:last-child{border:0}
+.item{cursor:pointer}.item.equipped{outline:2px solid var(--lime)}.item .rar{opacity:.65}
