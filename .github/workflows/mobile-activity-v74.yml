@@ -1,0 +1,28 @@
+name: Training Lab Mobile Activity v7.4
+
+on:
+  push:
+    paths:
+      - '.github/workflows/mobile-activity-v74.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python3 tools/patch_mobile_activity_v74.py
+      - name: Validate
+        run: npm ci && npm run check && node --test tests/*.test.mjs
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html runtime.js app.js styles.css service-worker.js
+          git commit -m "Improve mobile navigation recipes and activity home" || exit 0
+          git push origin HEAD:main
