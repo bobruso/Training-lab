@@ -30,7 +30,7 @@ test('authenticated cold start, writes and logout isolation',async({page})=>{
  expect(await page.evaluate(()=>window.logSuggestedMeal('comida','rejected').then(()=>false,()=>true))).toBe(true);
  expect(await page.evaluate(()=>window.cloudMeals.length)).toBe(before);
  await expect(page.locator('#appError')).toBeVisible();
- await page.locator('#logoutBtn').click();await expect(page.locator('#loginBtn')).toBeVisible();
+ await page.locator('#logoutBtn').click();await expect(page.locator('[data-auth=signin]')).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>window.TrainingLab.state.authenticated)).toBe(false);
  expect(errors).toEqual([]);
 });

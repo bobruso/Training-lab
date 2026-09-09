@@ -19,31 +19,14 @@ test('starts, navigates, exposes handlers and has no missing IDs',async({page})=
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
 });
-test('login validates, sends once and restores state',async({page})=>{
- let requests=0;
- await page.route('**/auth/v1/otp?**',async route=>{requests++;expect(route.request().postDataJSON().email).toBe('qa@example.com');expect(new URL(route.request().url()).searchParams.get('redirect_to')).toBe('https://bobruso.github.io/Training-lab/');await new Promise(r=>setTimeout(r,100));await route.fulfill({status:200,body:'{}'});});
- await page.goto('/');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);
- await page.locator('#loginBtn').click();await expect(page.locator('#cloudDetail')).toContainText('email válido');expect(requests).toBe(0);
- await page.locator('#authEmail').fill('qa@example.com');await page.locator('#loginBtn').click();
- await expect(page.locator('#loginBtn')).toHaveText('Enviando…');await expect(page.locator('#cloudDetail')).toContainText('Enlace enviado');await expect(page.locator('#loginBtn')).toBeEnabled();expect(requests).toBe(1);
+
+test('password form has no magic link and reports unavailable module',async({page})=>{
+ await page.route('**/app.js*',r=>r.abort());await page.goto('/');
+ await expect(page.getByRole('button',{name:'Enviar enlace',exact:true})).toHaveCount(0);
+ await page.locator('#authEmail').fill('qa@example.com');await page.locator('#authPassword').fill('test-password');await page.locator('[data-auth=signin]').click();
+ await expect(page.locator('#cloudDetail')).toContainText('aún no está lista');
 });
-test('fallback survives module failure and handles rate limits',async({page})=>{
- await page.route('**/app.js*',r=>r.abort());await page.route('**/auth/v1/otp?**',r=>r.fulfill({status:429,body:'{}'}));
- await page.goto('/');await page.locator('#authEmail').fill('qa@example.com');await page.locator('#loginBtn').click();
- await expect(page.locator('#cloudDetail')).toContainText('Demasiadas solicitudes');await expect(page.locator('#loginBtn')).toBeEnabled();
-});
-test('Android redirect is preserved and network errors are visible',async({page})=>{
- await page.addInitScript(()=>{window.TrainingLabAndroid={syncHealthConnect(){}};});
- await page.route('**/auth/v1/otp?**',route=>{expect(new URL(route.request().url()).searchParams.get('redirect_to')).toBe('traininglab://auth');return route.abort();});
- await page.goto('/');await page.locator('#authEmail').fill('qa@example.com');await page.locator('#loginBtn').click();await expect(page.locator('#appError')).toContainText('Login');await expect(page.locator('#loginBtn')).toBeEnabled();
-});
-test('login timeout restores button and diagnostics redact tokens',async({page})=>{
- await page.clock.install();
- await page.route('**/auth/v1/otp?**',()=>new Promise(()=>{}));
- await page.goto('/');await page.waitForFunction(()=>window.TrainingLab.state.appReady);
- await page.locator('#authEmail').fill('qa@example.com');await page.locator('#loginBtn').click();
- await page.clock.runFor(21000);
- await expect(page.locator('#loginBtn')).toBeEnabled();await expect(page.locator('#cloudDetail')).toContainText('tardó demasiado');
- const safe=await page.evaluate(()=>window.TrainingLab.safe('Bearer hidden-token access_token=hidden-token sb_secret_hidden'));
+test('diagnostics redact tokens',async({page})=>{
+ await page.goto('/');const safe=await page.evaluate(()=>window.TrainingLab.safe('Bearer hidden-token access_token=hidden-token sb_secret_hidden'));
  expect(safe).not.toContain('hidden-token');expect(safe).not.toContain('sb_secret_hidden');
 });
