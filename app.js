@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909activity74';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909activity74';
-import { createClient } from "./vendor/supabase.js?v=20260909activity74";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909adaptive75';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909adaptive75';
+import { createClient } from "./vendor/supabase.js?v=20260909adaptive75";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -1135,6 +1135,7 @@ window.healthConnectSyncFinished=async function(payload){
  let info={};try{info=typeof payload==='string'?JSON.parse(payload):payload||{}}catch{}
  const silent=healthConnectSilent;healthConnectSilent=false;
  await loadCloud();
+ renderAdaptiveActivityResponse();renderWeek();renderToday();
  const el=document.getElementById('sleepSyncStatus');if(el)el.textContent=`Health Connect sincronizado · ${info.sleep??0} sueño(s) · ${info.activities??0} entrenamiento(s)`;
  if(!silent)alert(`Health Connect sincronizado: ${info.sleep??0} sueños y ${info.activities??0} entrenamientos.`);
 }
@@ -1219,21 +1220,96 @@ function activityPace(a){
  const sec=Number(a.pace)||(a.distance>0&&a.duration>0?(a.duration*60/a.distance):0);if(!sec)return null;
  return `${Math.floor(sec/60)}′${String(Math.round(sec%60)).padStart(2,'0')}″/km`;
 }
-function renderHomeActivities(){
- const el=document.getElementById('homeRecentActivities');if(!el)return;
- const acts=[...S.activities].sort((a,b)=>new Date(b.started_at||b.date+'T12:00:00')-new Date(a.started_at||a.date+'T12:00:00')).slice(0,3);
- if(!acts.length){el.innerHTML='<div class="card activity-empty"><b>Aún no hay actividades sincronizadas.</b><div class="muted small">Al abrir la APK, Training Lab consulta Health Connect automáticamente.</div></div>';return;}
- el.innerHTML=acts.map(a=>{
-   const primary=a.distance>0?`${Number(a.distance).toFixed(2)} km`:formatActivityDuration(a.duration);
-   const pace=a.type==='run'?activityPace(a):null;
-   const meta=[a.duration?formatActivityDuration(a.duration):null,pace,a.hr?`${Math.round(a.hr)} ppm`:null,a.kcal?`${Math.round(a.kcal)} kcal`:null].filter(Boolean).join(' · ');
-   const when=a.started_at?new Date(a.started_at).toLocaleString('es-ES',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):new Date(a.date+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
-   const source=a.source==='health_connect'?'Health Connect':a.source==='fit'?'FIT':'Training Lab';
-   return `<button class="activity-card activity-${escapeHtml(a.type||'other')}" onclick="navTo('entrenos')"><div class="activity-copy"><div class="activity-kicker">${activityIcon(a.type)} ${escapeHtml(activityLabel(a.type))}</div><div class="activity-primary">${primary}</div><div class="activity-meta">${escapeHtml(meta||'Métricas pendientes')}</div><div class="activity-title">${escapeHtml(a.title||activityLabel(a.type))}</div><div class="activity-source">${escapeHtml(when)} · ${source}</div></div><div class="activity-visual" aria-hidden="true"><span>${activityIcon(a.type)}</span><svg viewBox="0 0 120 70" preserveAspectRatio="none"><path d="M5 53 C22 19,30 61,47 30 S70 18,77 49 S96 60,115 17"/></svg></div></button>`;
- }).join('');
+function latestTodayActivity(){
+ return [...S.activities].filter(a=>a.date===iso()&&['run','football','gym','walk'].includes(a.type))
+   .sort((a,b)=>new Date(b.started_at||b.date+'T12:00:00')-new Date(a.started_at||a.date+'T12:00:00'))[0]||null;
 }
+function recentSameType(a,limit=5){
+ return [...S.activities].filter(x=>x.type===a.type&&x.id!==a.id&&x.date<=a.date)
+   .sort((x,y)=>new Date(y.started_at||y.date+'T12:00:00')-new Date(x.started_at||x.date+'T12:00:00')).slice(0,limit);
+}
+function avg(vals){const v=vals.filter(Number.isFinite);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function pctDelta(v,base){return Number.isFinite(v)&&Number.isFinite(base)&&base!==0?(v-base)/base*100:null;}
+function signedPct(v){return `${v>=0?'+':''}${v.toFixed(0)} %`;}
+function activityEnd(a){
+ const start=a.started_at?new Date(a.started_at):null;if(!start||Number.isNaN(start.getTime()))return null;
+ return new Date(start.getTime()+Number(a.duration||0)*60000);
+}
+function activityCard(a){
+ const primary=a.distance>0?`${Number(a.distance).toFixed(2)} km`:formatActivityDuration(a.duration);
+ const pace=a.type==='run'?activityPace(a):null;
+ const meta=[a.duration?formatActivityDuration(a.duration):null,pace,a.hr?`${Math.round(a.hr)} ppm`:null,a.kcal?`${Math.round(a.kcal)} kcal`:null].filter(Boolean).join(' · ');
+ const when=a.started_at?new Date(a.started_at).toLocaleString('es-ES',{weekday:'long',hour:'2-digit',minute:'2-digit'}):'hoy';
+ const source=a.source==='health_connect'?'Health Connect':a.source==='fit'?'FIT':'Training Lab';
+ return `<button class="activity-card activity-${escapeHtml(a.type||'other')} activity-card-primary" onclick="navTo('entrenos')"><div class="activity-copy"><div class="activity-kicker">${activityIcon(a.type)} ${escapeHtml(activityLabel(a.type))}</div><div class="activity-primary">${primary}</div><div class="activity-meta">${escapeHtml(meta||'Métricas pendientes')}</div><div class="activity-title">${escapeHtml(a.title||activityLabel(a.type))}</div><div class="activity-source">${escapeHtml(when)} · ${source}</div></div><div class="activity-visual" aria-hidden="true"><span>${activityIcon(a.type)}</span><svg viewBox="0 0 120 80"><path d="M7 62 C24 52 28 19 45 25 S59 67 74 47 S91 20 113 13" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="7" cy="62" r="4"/><circle cx="113" cy="13" r="4"/></svg></div></button>`;
+}
+function recoveryForActivity(a){
+ const duration=Number(a.duration||0),rpe=Number(a.rpe||0),hard=rpe>=8||duration>=75||(a.type==='football'&&duration>=50);
+ const sinceEnd=activityEnd(a)?Math.max(0,(Date.now()-activityEnd(a))/60000):null;
+ const fresh=sinceEnd!=null&&sinceEnd<120;
+ if(a.type==='run')return {
+   title:hard?'Carrera exigente registrada · ahora toca absorberla':'Carrera registrada · el plan cambia a recuperación',
+   text:`Esta carrera ya cuenta como tu trabajo aeróbico de hoy. Training Lab no añadirá otra sesión solo por cumplir el plan.`,
+   recovery:[fresh?'5–10 min andando muy suave para bajar pulsaciones y soltar piernas.':'Paseo suave opcional si notas las piernas rígidas; no necesitas “compensar” con más cardio.','Movilidad de tobillo 1–2 min por lado + 2×10 elevaciones de gemelo suaves.','2×8 puente de glúteo y movilidad de cadera, sin buscar fatiga.','Si aparece dolor localizado o creciente, no conviertas la recuperación en otro entrenamiento.'],
+   nutrition:[hard?'Haz una comida con carbohidratos abundantes y 25–35 g de proteína en las próximas horas.':'Comida normal completa: carbohidratos para reponer + 25–35 g de proteína.','Bebe según sed; si has sudado mucho, acompaña líquidos con comida/sodio en vez de beber agua a la fuerza.','No hace falta “premiar” la carrera con calorías vacías: usa la sesión para ajustar el total del día.']
+ };
+ if(a.type==='football')return {
+   title:'Pachanga registrada · prioridad a piernas y combustible',text:'El fútbol ya es la sesión intensa del día y condiciona las próximas 24–36 h.',
+   recovery:['5–10 min andando y movilidad muy suave al terminar.','Tobillo, gemelo, aductor y cadera: movilidad corta, sin estiramientos agresivos.','Nada de fuerza dura de piernas después del partido.','Mañana la carga se decidirá con sueño, dolor y recuperación real.'],
+   nutrition:['Carbohidratos altos después del partido + 25–35 g de proteína.','Rehidrátate según sed; añade sal/comida si la sudoración fue alta.','Prioriza una cena fácil de digerir y suficiente energía total.']
+ };
+ if(a.type==='gym')return {title:'Fuerza registrada · no dupliques estímulo',text:'La sesión de fuerza ya modifica el reparto semanal.',recovery:['5–10 min de vuelta a la calma opcional.','Movilidad solo donde notes rigidez; no necesitas estirar por obligación.','Deja al grupo trabajado recuperar antes de repetir carga dura.'],nutrition:['25–35 g de proteína en una comida próxima.','Carbohidratos según el resto de actividad del día.','Hidratación normal según sed.']};
+ return {title:'Actividad registrada · plan recalculado',text:'Training Lab usa lo que realmente haces por encima del plan teórico.',recovery:['Movimiento suave y cómodo.','No añadas intensidad solo para completar casillas.'],nutrition:['Comida completa con proteína y carbohidratos según el gasto del día.','Hidratación según sed.']};
+}
+function analysisForActivity(a){
+ const out=[];const peers=recentSameType(a,5);
+ if(a.type==='run'){
+   if(a.distance&&a.duration)out.push(`Has hecho ${Number(a.distance).toFixed(2)} km en ${formatActivityDuration(a.duration)} (${activityPace(a)}).`);
+   if(a.hr)out.push(`FC media registrada: ${Math.round(a.hr)} ppm${a.hrmax?` · máxima ${Math.round(a.hrmax)} ppm`:''}.`);
+ } else {
+   if(a.distance)out.push(`Distancia registrada: ${Number(a.distance).toFixed(2)} km.`);
+   if(a.duration)out.push(`Duración: ${formatActivityDuration(a.duration)}.`);
+   if(a.hr)out.push(`FC media: ${Math.round(a.hr)} ppm.`);
+ }
+ if(a.kcal)out.push(`El reloj/Health Connect ha registrado ${Math.round(a.kcal)} kcal; lo tratamos como una estimación, no como calorías exactas para “comer de vuelta”.`);
+ if(peers.length>=3){
+   const d=avg(peers.map(x=>Number(x.distance)).filter(x=>x>0)),dur=avg(peers.map(x=>Number(x.duration)).filter(x=>x>0)),hr=avg(peers.map(x=>Number(x.hr)).filter(x=>x>0));
+   const dd=pctDelta(Number(a.distance),d),td=pctDelta(Number(a.duration),dur);
+   if(dd!=null)out.push(`Distancia: ${signedPct(dd)} frente a la media de tus ${peers.length} ${activityLabel(a.type).toLowerCase()}s anteriores.`);
+   if(td!=null)out.push(`Duración: ${signedPct(td)} frente a tu referencia reciente.`);
+   if(a.hr&&hr)out.push(`FC media: ${Math.round(a.hr)} ppm vs ${Math.round(hr)} ppm de media reciente. Lo interpretaremos junto con ritmo, duración y sensaciones, no de forma aislada.`);
+ }else out.push(`Cuando acumules al menos 3 sesiones similares, empezaremos a compararla automáticamente contigo mismo.`);
+ return out;
+}
+function renderAdaptiveActivityResponse(){
+ const wrap=document.getElementById('homeActivityNow'),list=document.getElementById('homeRecentActivities');if(!wrap||!list)return;
+ const a=latestTodayActivity();
+ if(!a){wrap.hidden=true;list.innerHTML='';return;}
+ wrap.hidden=false;list.innerHTML=activityCard(a);
+ const r=recoveryForActivity(a),plan=adaptivePlan(new Date()),c=counts(new Date()),runTarget=weekRunTarget(new Date());
+ document.getElementById('adaptiveResponseTitle').textContent=r.title;
+ document.getElementById('adaptiveResponseText').textContent=r.text;
+ const metrics=[];
+ if(a.distance)metrics.push(`<span>${Number(a.distance).toFixed(2)} km</span>`);
+ if(a.duration)metrics.push(`<span>${formatActivityDuration(a.duration)}</span>`);
+ if(a.type==='run'&&activityPace(a))metrics.push(`<span>${activityPace(a)}</span>`);
+ if(a.hr)metrics.push(`<span>FC ${Math.round(a.hr)} ppm</span>`);
+ if(a.kcal)metrics.push(`<span>${Math.round(a.kcal)} kcal</span>`);
+ document.getElementById('adaptiveWatchMetrics').innerHTML=metrics.join('');
+ document.getElementById('adaptiveRecovery').innerHTML=r.recovery.map(x=>`<div class="adaptive-step">${escapeHtml(x)}</div>`).join('');
+ document.getElementById('adaptiveNutrition').innerHTML=r.nutrition.map(x=>`<div class="adaptive-step">${escapeHtml(x)}</div>`).join('');
+ const future=[];
+ future.push(`<div class="notice"><b>Hoy:</b> ${escapeHtml(plan.title)}<br><span class="small">${escapeHtml(plan.reason)}</span></div>`);
+ future.push(`<div class="adaptive-step">Semana real: ${c.run}/${runTarget} running · ${c.football} fútbol · ${c.gym} fuerza.</div>`);
+ for(let i=1;i<=2;i++){const d=addDays(new Date(),i),p=adaptivePlan(d);future.push(`<div class="adaptive-step"><b>${DAYS[d.getDay()]}:</b> ${escapeHtml(p.title)}</div>`);}
+ document.getElementById('adaptivePlanChanges').innerHTML=future.join('');
+ const analysis=analysisForActivity(a);
+ document.getElementById('adaptiveAnalysisTitle').textContent=`Qué dice esta ${activityLabel(a.type).toLowerCase()}`;
+ document.getElementById('adaptiveAnalysis').innerHTML=analysis.map(x=>`<div class="insight">${escapeHtml(x)}</div>`).join('');
+}
+function renderHomeActivities(){renderAdaptiveActivityResponse();}
 
-function renderV5(){
+function renderV5(){renderAdaptiveActivityResponse();
  renderHomeActivities();renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderFootballTrends();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
 }
 

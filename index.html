@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v7.4 · build activity74">
-<script src="./runtime.js?v=20260909activity74" defer></script>
+<meta name="build" content="v7.5 · build adaptive75">
+<script src="./runtime.js?v=20260909adaptive75" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909activity74">
+<link rel="stylesheet" href="./styles.css?v=20260909adaptive75">
 </head>
 <body>
 <div class="app">
@@ -34,6 +34,26 @@
  </nav>
 
  <section class="page on" id="hoy">
+  <div id="homeActivityNow" class="home-activity-now" hidden>
+   <div class="sectionhead"><div><div class="eyebrow">Lo último que has hecho</div><h2>Actividad detectada</h2></div><button class="btn alt" onclick="navTo('entrenos')">Ver actividad</button></div>
+   <div id="homeRecentActivities" class="home-activity-list"></div>
+   <div id="homeAdaptiveResponse" class="adaptive-response">
+    <div class="card adaptive-summary-card">
+      <div class="eyebrow">Training Lab se ha adaptado</div>
+      <h2 id="adaptiveResponseTitle">Recalculando tu día…</h2>
+      <p class="muted" id="adaptiveResponseText"></p>
+      <div id="adaptiveWatchMetrics" class="home-decision-context"></div>
+    </div>
+    <div class="grid g3 adaptive-action-grid">
+      <div class="card"><div class="eyebrow">Ahora</div><h3>Recuperación</h3><div id="adaptiveRecovery"></div></div>
+      <div class="card"><div class="eyebrow">Después</div><h3>Comida e hidratación</h3><div id="adaptiveNutrition"></div></div>
+      <div class="card"><div class="eyebrow">Plan mutado</div><h3>Qué cambia</h3><div id="adaptivePlanChanges"></div></div>
+    </div>
+    <div class="card adaptive-analysis-card">
+      <div class="eyebrow">Lectura de tus datos</div><h3 id="adaptiveAnalysisTitle">Análisis de la sesión</h3><div id="adaptiveAnalysis"></div>
+    </div>
+   </div>
+  </div>
   <div class="card hero">
    <div class="eyebrow">Ahora</div>
    <div class="today" id="todayText">Hoy es...</div>
@@ -76,11 +96,6 @@
     <div class="actions"><button class="btn" onclick="setFootball(true)">Sí, juego</button><button class="btn alt" onclick="setFootball(false)">No juego</button></div>
     <div id="footballStatus" class="small muted" style="margin-top:9px"></div>
    </div>
-  </div>
-
-  <div class="section home-activity-section">
-   <div class="sectionhead"><div><div class="eyebrow">Actividad reciente</div><h2>Últimos entrenamientos</h2></div><button class="btn alt" onclick="navTo('entrenos')">Ver todas</button></div>
-   <div id="homeRecentActivities" class="home-activity-list"></div>
   </div>
 
   <div class="section card" id="matchDayPanel" style="display:none">
@@ -401,6 +416,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260909activity74"></script>
+<script type="module" src="./app.js?v=20260909adaptive75"></script>
 </body>
 </html>
