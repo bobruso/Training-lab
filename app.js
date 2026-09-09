@@ -1,8 +1,14 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
+import { createClient } from "./vendor/supabase.js";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {global:{fetch:async(input,options)=>{
+ const response=await window.TrainingLab.request(input,options);
+ const path=new URL(typeof input==='string'?input:input.url).pathname;
+ if(path.includes('/functions/v1/'))window.TrainingLab.update({lastFunction:path.split('/').at(-1)});
+ if(!response.ok)window.TrainingLab.report('Supabase', 'La operación no se ha completado (HTTP '+response.status+'). Revisa la conexión y vuelve a intentarlo.');
+ return response;
+}}});
 let currentUser = null;
 let cloudAnalyses=[]; let cloudSleep=[]; let cloudCheckins=[]; let cloudSets=[]; let cloudAchievements=[]; let cloudGame=null; let dailyDraft={};
 let cloudGoals=[]; let cloudReports=[]; let cloudInjuries=[]; let cloudSync=[];
@@ -15,8 +21,8 @@ const base={
  activities:[],weights:[],footballOverrides:{},restDays:{},fatigue:{}
 };
 let S=load();
-function load(){try{const x=JSON.parse(localStorage.getItem(STORE));return Object.assign(structuredClone(base),x||{})}catch(e){return structuredClone(base)}}
-function save(){localStorage.setItem(STORE,JSON.stringify(S));}
+function load(){try{const x=JSON.parse(localStorage.getItem(currentUser ? STORE+':'+currentUser.id : STORE));return Object.assign(structuredClone(base),x||{})}catch(e){return structuredClone(base)}}
+function save(){try{localStorage.setItem(currentUser ? STORE+':'+currentUser.id : STORE,JSON.stringify(S));}catch(e){window.TrainingLab.report('Guardado local',e);}}
 function iso(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function mondayOf(d=new Date()){let x=new Date(d);let n=(x.getDay()+6)%7;x.setDate(x.getDate()-n);x.setHours(0,0,0,0);return x}
 function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
@@ -292,6 +298,11 @@ async function loadCloud(){
    supabase.from('injuries').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(30),
    supabase.from('sync_sources').select('*').eq('user_id',currentUser.id)
  ]);
+ const results=[acts,weights,statuses,analyses,sleep,checkins,sets,achievements,game,meals,goals,reports,injuries,syncs];
+ const failed=results.filter(r=>r.error);
+ if(failed.length)window.TrainingLab.report('Sincronización',failed.length+' consultas no se han podido completar. Los datos pueden estar incompletos.');
+ else window.TrainingLab.update({lastSync:new Date().toISOString()});
+ window.TrainingLab.update({activities:acts.data?.length||0,sleep:sleep.data?.length||0});
  if(!acts.error){
    S.activities=acts.data.map(a=>({id:a.id,date:a.activity_date,type:a.activity_type,source:a.source,duration:Number(a.duration_min)||0,moving:Number(a.moving_time_min)||0,rpe:Number(a.rpe)||0,distance:Number(a.distance_km)||0,hr:Number(a.avg_hr)||0,hrmax:Number(a.max_hr)||0,kcal:Number(a.calories)||0,topSpeed:Number(a.top_speed_kmh)||0,highIntensity:Number(a.high_intensity_m)||0,sprints:Number(a.sprint_count)||0,absSprints:Number(a.absolute_sprint_count)||0,pace:Number(a.avg_pace_sec_km)||0,metrics:a.metrics||{},fitName:a.source==='fit'?a.title:null}));
  }
@@ -320,7 +331,7 @@ async function loadCloud(){
 function setCloudUI(){
  const status=document.getElementById('cloudStatus'),detail=document.getElementById('cloudDetail'),actions=document.getElementById('authActions');
  if(currentUser){
-   status.textContent='Sincronizado';
+   status.textContent='Sesión iniciada';
    detail.textContent=currentUser.email+' · proyecto Training Lab';
    actions.innerHTML='<button class="btn alt" id="logoutBtn">Cerrar sesión</button>';
    document.getElementById('logoutBtn').onclick=async()=>{await supabase.auth.signOut();};
@@ -328,27 +339,32 @@ function setCloudUI(){
  }else{
    status.textContent='Modo local';
    detail.textContent='Tus datos se guardan en este navegador. Inicia sesión para sincronizar móvil y PC.';
-   actions.innerHTML='<input id="authEmail" type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px"><button class="btn" id="loginBtn">Enviar enlace</button>';
-   document.getElementById('loginBtn').onclick=login;
+   actions.innerHTML='<input id="authEmail" aria-label="Email de acceso" required type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px"><button class="btn" id="loginBtn">Enviar enlace</button>';
+   
    document.getElementById('syncNotice').textContent='Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.';
  }
 }
-async function login(){
- const email=document.getElementById('authEmail').value.trim();if(!email)return alert('Escribe tu email.');
- const inAndroid=!!(window.TrainingLabAndroid && typeof window.TrainingLabAndroid.syncHealthConnect==='function');
- const redirect=inAndroid?'traininglab://auth':((location.protocol==='http:'||location.protocol==='https:')?location.origin+location.pathname:undefined);
- const {error}=await supabase.auth.signInWithOtp({email,options:redirect?{emailRedirectTo:redirect}:{}});
- if(error)alert(error.message);else alert(inAndroid?'Te he enviado el enlace. Al abrirlo, Android debería devolverte directamente a Training Lab.':'Te he enviado el enlace de acceso. Ábrelo desde el mismo dispositivo.');
+// Auth callbacks must return immediately; cloud work runs outside the auth lock.
+let authGeneration=0;
+async function applySession(session){
+ const generation=++authGeneration;
+ const nextUser=session?.user||null;
+ if(currentUser?.id!==nextUser?.id){
+   currentUser=nextUser;S=load();
+   cloudAnalyses=[];cloudSleep=[];cloudCheckins=[];cloudSets=[];cloudAchievements=[];cloudGame=null;
+   cloudGoals=[];cloudReports=[];cloudInjuries=[];cloudSync=[];window.cloudMeals=[];dailyDraft={};
+ }
+ setCloudUI();renderAll();
+ window.TrainingLab.update({authenticated:!!currentUser,email:currentUser?.email||null});
+ if(currentUser){await ensureProfile();if(generation===authGeneration)await loadCloud();}
 }
-document.getElementById('loginBtn').onclick=login;
-const {data:{session}}=await supabase.auth.getSession();
-currentUser=session?.user||null;
-setCloudUI();
-if(currentUser){await ensureProfile();await loadCloud();}
-supabase.auth.onAuthStateChange(async(event,session)=>{
- currentUser=session?.user||null;setCloudUI();
- if(currentUser){await ensureProfile();await loadCloud();}
-});
+async function initAuth(){
+ try{
+   const {data,error}=await supabase.auth.getSession();if(error)throw error;
+   await applySession(data.session);
+   supabase.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>applySession(session).catch(e=>window.TrainingLab.report('Sesión',e)),0);});
+ }catch(e){window.TrainingLab.report('Inicio de sesión',e);}
+}
 
 
 function metricBox(label,value){
@@ -755,7 +771,7 @@ function renderCorrelations(){
  if(carbYes.length>=2&&carbNo.length>=2){
    const metric=a=>a.highIntensity||a.distance*1000;
    const y=carbYes.reduce((s,a)=>s+metric(a),0)/carbYes.length,n=carbNo.reduce((s,a)=>s+metric(a),0)/carbNo.length;
-   insights.push(`Cuando marcas “carbohidratos suficientes”, tu trabajo intenso/volumen asociado es ${((y-n)/Math.max(1,n)*100)).toFixed(0)} % diferente.`);
+   insights.push(`Cuando marcas “carbohidratos suficientes”, tu trabajo intenso/volumen asociado es ${((y-n)/Math.max(1,n)*100).toFixed(0)} % diferente.`);
  }
  if(cloudCheckins.length<10)insights.push(`Llevas ${cloudCheckins.length} check-ins. A partir de ~10–20 registros empiezan a tener sentido las primeras comparaciones.`);
  el.innerHTML=insights.map(x=>`<div class="insight">${x}</div>`).join('');
@@ -785,3 +801,6 @@ document.getElementById('actDate').value=iso();document.getElementById('weightDa
 document.getElementById('sleepDate').value=iso();document.getElementById('injuryDate').value=iso();
 document.getElementById('allRecipes').innerHTML=recipes.map(recipeCard).join('');
 renderAll();setInterval(renderToday,30000);
+
+window.TrainingLab.update({appReady:true});
+void initAuth();

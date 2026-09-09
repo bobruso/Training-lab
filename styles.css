@@ -96,3 +96,7 @@ h1,h2,h3,p{margin-top:0}h2{letter-spacing:-.03em}.muted{color:var(--muted)}
 .quest{padding:12px;border:1px solid var(--line);border-radius:13px;background:#101619;margin-top:8px}
 .quest .actions{margin-top:8px}.insight{padding:10px 0;border-bottom:1px solid var(--line)}.insight:last-child{border:0}
 .item{cursor:pointer}.item.equipped{outline:2px solid var(--lime)}.item .rar{opacity:.65}
+/* All sections remain reachable on phones, not just the five bottom shortcuts. */
+@media(max-width:700px){nav{display:flex!important;overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding:8px 0}nav button{flex:0 0 auto;min-height:44px}.actions{flex-wrap:wrap}#authActions input{min-width:0!important;width:100%}.card{min-width:0}pre{max-width:100%}}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--lime);outline-offset:3px}

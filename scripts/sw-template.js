@@ -1,5 +1,5 @@
-const CACHE='training-lab-6f2d452c4d';
-const ASSETS=['./','./index.html','./app.js?v=6f2d452c4d','./runtime.js?v=6f2d452c4d','./styles.css?v=6f2d452c4d','./vendor/supabase.js','./manifest.webmanifest','./privacy.html'];
+const CACHE='training-lab-__BUILD__';
+const ASSETS=['./','./index.html','./app.js?v=__BUILD__','./runtime.js?v=__BUILD__','./styles.css?v=__BUILD__','./vendor/supabase.js','./manifest.webmanifest','./privacy.html'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   // Installation is atomic: a missing asset keeps the old worker active.

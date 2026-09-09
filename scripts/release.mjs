@@ -1,0 +1,15 @@
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {build} from 'esbuild';
+mkdirSync('vendor',{recursive:true});
+await build({stdin:{contents:"export { createClient } from './node_modules/@supabase/supabase-js/dist/index.mjs';",resolveDir:process.cwd()},tsconfigRaw:{compilerOptions:{}},bundle:true,format:'esm',platform:'browser',minify:true,outfile:'vendor/supabase.js',legalComments:'eof'});
+const files=['app.js','runtime.js','styles.css','vendor/supabase.js','manifest.webmanifest','privacy.html'];
+let html=readFileSync('index.html','utf8').replace(/\?v=[\w.-]+/g,'').replace(/content="v6\.2 · build [^"]*"/,'content="BUILD"');
+const hash=createHash('sha256').update(html);
+for(const file of files)hash.update(readFileSync(file));
+const id=hash.digest('hex').slice(0,10);
+html=html.replace('content="BUILD"',`content="v6.2 · build ${id}"`).replace(/(\.\/(?:app\.js|runtime\.js|styles\.css))(?=")/g,`$1?v=${id}`);
+writeFileSync('index.html',html);
+const sw=readFileSync('scripts/sw-template.js','utf8').replaceAll('__BUILD__',id);
+writeFileSync('service-worker.js',sw);
+console.log(`Build ${id}`);

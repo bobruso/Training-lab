@@ -1,0 +1,30 @@
+{
+  "name": "training-lab",
+  "version": "1.0.0",
+  "description": "Training Lab es una app personal adaptativa para combinar:",
+  "main": "app.js",
+  "scripts": {
+    "release": "node scripts/release.mjs",
+    "check": "node --check app.js && node --check runtime.js && node --check service-worker.js",
+    "test": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bobruso/Training-lab.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/bobruso/Training-lab/issues"
+  },
+  "homepage": "https://github.com/bobruso/Training-lab#readme",
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@supabase/supabase-js": "2.116.0",
+    "esbuild": "0.28.2",
+    "supabase": "2.117.0"
+  },
+  "private": true
+}
