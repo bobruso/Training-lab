@@ -1,77 +1,8 @@
 name: Training Lab quality
 on: [push, pull_request, workflow_dispatch]
 permissions:
-  contents: write
+  contents: read
 jobs:
-  account-ui:
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Prepare account settings move')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Move account controls into Ajustes
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          block='''<div class="card" id="cloudCard" style="margin-bottom:12px">
-  <div style="display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap">
-    <div>
-      <div class="eyebrow">Training Lab Cloud</div>
-      <strong id="cloudStatus">Modo local</strong>
-      <div class="small muted" id="cloudDetail" role="status" aria-live="polite">Tus datos se guardan en este navegador. Inicia sesión para sincronizar móvil y PC.</div>
-    </div>
-    <div id="authFeedback" role="status" aria-live="polite" class="notice" hidden></div>
-    <div class="actions" id="authActions">
-      <input id="authEmail" aria-label="Email de acceso" autocomplete="email" required type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px">
-      <span class="muted">Cargando acceso con contraseña…</span>
-    </div>
-  </div>
-</div>
-'''
-          s=s.replace(block,'',1)
-          s=s.replace('<button data-page="rpg">RPG</button>\n </nav>','<button data-page="rpg">RPG</button><button data-page="ajustes">Ajustes</button>\n </nav>',1)
-          if 'id="ajustes"' not in s:
-              settings='''\n <section class="page" id="ajustes">
-  <div class="sectionhead"><h2>Ajustes / Perfil</h2><span class="muted">cuenta, sincronización y preferencias</span></div>
-  <div class="grid g2">
-   <div class="card" id="cloudCard">
-    <div class="eyebrow">Cuenta Training Lab</div>
-    <h2 id="cloudStatus">Modo local</h2>
-    <div class="small muted" id="cloudDetail" role="status" aria-live="polite">Tus datos se guardan en este navegador. Inicia sesión para sincronizar móvil y PC.</div>
-    <div id="authFeedback" role="status" aria-live="polite" class="notice" hidden style="margin-top:10px"></div>
-    <div class="actions" id="authActions" style="margin-top:12px">
-      <input id="authEmail" aria-label="Email de acceso" autocomplete="email" required type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px">
-      <span class="muted">Cargando acceso con contraseña…</span>
-    </div>
-   </div>
-   <div class="card">
-    <div class="eyebrow">Datos y dispositivos</div>
-    <h2>COROS / Health Connect</h2>
-    <p class="muted">Training Lab recibe los datos del reloj a través de Health Connect cuando COROS comparte allí tus métricas.</p>
-    <div class="actions"><button class="btn" onclick="syncHealthConnect()">Sincronizar ahora</button><button class="btn alt" onclick="navTo('entrenos')">Ver fuentes</button></div>
-    <p class="small muted" style="margin-top:10px">Contraseña y cierre de sesión quedan aquí para no ocupar espacio en la pantalla principal.</p>
-   </div>
-  </div>
- </section>
-'''
-              s=s.replace('\n <section class="page" id="progreso">',settings+'\n <section class="page" id="progreso">',1)
-          p.write_text(s,encoding='utf-8')
-          PY
-          npm run release
-          npm run check
-          node --test tests/*.test.mjs
-      - name: Commit UI change
-        run: |
-          git config user.name "training-lab-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add index.html service-worker.js
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Move account controls into settings"
-          git push
   web:
     runs-on: ubuntu-latest
     steps:
