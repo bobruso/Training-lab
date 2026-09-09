@@ -2,10 +2,12 @@ package com.traininglab.companion
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.health.connect.client.HealthConnectClient
@@ -38,6 +40,10 @@ class MainActivity : ComponentActivity() {
     private val client by lazy { HealthConnectClient.getOrCreate(this) }
     private var pendingToken: String? = null
     private var pendingSupabaseUrl: String? = null
+    private var syncing = false
+    private val backendUrl = "https://nnpvklaxhomarxszlclt.supabase.co"
+    private fun trusted(uri: Uri): Boolean = uri.scheme == "https" && uri.host == "bobruso.github.io" &&
+        (uri.port == -1 || uri.port == 443) && uri.path?.startsWith("/Training-lab/") == true
 
     private val permissions = setOf(
         HealthPermission.getReadPermission(SleepSessionRecord::class),
@@ -55,7 +61,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val granted = client.permissionController.getGrantedPermissions()
             if (granted.containsAll(permissions)) doSync()
-            else sendError("Faltan permisos de Health Connect.")
+            else { pendingToken = null; syncing = false; sendError("Faltan permisos de Health Connect.") }
         }
     }
 
@@ -65,7 +71,17 @@ class MainActivity : ComponentActivity() {
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            webViewClient = WebViewClient()
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    if (trusted(request.url)) return false
+                    if (request.isForMainFrame && request.url.scheme == "https") {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
+                    }
+                    return true
+                }
+            }
             addJavascriptInterface(WebBridge(), "TrainingLabAndroid")
         }
         setContentView(webView)
@@ -96,11 +112,19 @@ class MainActivity : ComponentActivity() {
     inner class WebBridge {
         @JavascriptInterface
         fun syncHealthConnect(accessToken: String, supabaseUrl: String) {
-            pendingToken = accessToken
-            pendingSupabaseUrl = supabaseUrl
             lifecycleScope.launch {
+                if (!trusted(Uri.parse(webView.url ?: "")) || supabaseUrl != backendUrl) {
+                    sendError("Origen de sincronización no permitido.")
+                    return@launch
+                }
+                if (syncing) return@launch
+                syncing = true
+                pendingToken = accessToken
+                pendingSupabaseUrl = backendUrl
                 val status = HealthConnectClient.getSdkStatus(this@MainActivity)
                 if (status != HealthConnectClient.SDK_AVAILABLE) {
+                    pendingToken = null
+                    syncing = false
                     sendError("Health Connect no está disponible en este dispositivo.")
                     return@launch
                 }
@@ -251,12 +275,16 @@ class MainActivity : ComponentActivity() {
             val result = withContext(Dispatchers.IO) { postToSupabase(payload.toString()) }
             sendSuccess(result)
         } catch (e: Exception) {
-            sendError(e.message ?: "Error desconocido")
+            sendError("No se ha completado la sincronización. Comprueba permisos y conexión.")
+        } finally {
+            pendingToken = null
+            pendingSupabaseUrl = null
+            syncing = false
         }
     }
 
     private fun postToSupabase(json: String): String {
-        val base = pendingSupabaseUrl ?: error("Falta URL de Supabase")
+        val base = backendUrl
         val token = pendingToken ?: error("Falta sesión")
         val url = URL("$base/functions/v1/health-connect-ingest")
         val conn = (url.openConnection() as HttpURLConnection).apply {
