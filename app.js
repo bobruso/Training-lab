@@ -10,6 +10,18 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {global:{fetch:async(i
  if(!response.ok)window.TrainingLab.report('Supabase', 'La operación no se ha completado (HTTP '+response.status+'). Revisa la conexión y vuelve a intentarlo.');
  return response;
 }}});
+// Stop a failed write before callers can announce success or award XP.
+const rawFrom=supabase.from.bind(supabase);
+supabase.from=table=>{
+ let writing=false;
+ const wrap=builder=>new Proxy(builder,{get(target,key){
+   if(key==='then')return(resolve,reject)=>target.then(result=>{if(writing&&result.error){window.TrainingLab.report('Guardado '+table,result.error);throw new Error('No se ha guardado '+table+'. Reintenta cuando tengas conexión.');}return result;}).then(resolve,reject);
+   const value=Reflect.get(target,key,target);
+   if(typeof value!=='function')return value;
+   return (...args)=>{if(['insert','upsert','update','delete'].includes(key))writing=true;const next=value.apply(target,args);return next&&typeof next==='object'?wrap(next):next;};
+ }});
+ return wrap(rawFrom(table));
+};
 let currentUser = null;
 let cloudAnalyses=[]; let cloudSleep=[]; let cloudCheckins=[]; let cloudSets=[]; let cloudAchievements=[]; let cloudGame=null; let dailyDraft={};
 let cloudGoals=[]; let cloudReports=[]; let cloudInjuries=[]; let cloudSync=[];
@@ -260,6 +272,7 @@ window.registerFit=async function registerFit(){
  const f=document.getElementById('fitInput').files[0];
  const el=document.getElementById('fitResult');
  if(!f){el.textContent='Selecciona un archivo .fit.';return}
+ if(!/\.fit$/i.test(f.name)||f.size>20*1024*1024){el.textContent='Selecciona un archivo .fit de hasta 20 MB.';return}
  if(!currentUser){el.textContent='Para analizar y guardar el FIT, inicia sesión primero.';return}
  el.textContent='1/3 · Subiendo FIT...';
  const fitType=document.getElementById('fitType')?.value||'football';
@@ -397,8 +410,8 @@ async function initAuth(){
 function metricBox(label,value){
  return `<div class="metric"><div class="k">${label}</div><div class="v" style="font-size:22px">${value}</div></div>`;
 }
-function drawHeatmap(track){
- const c=document.getElementById('heatmapCanvas'); if(!c)return;
+function drawHeatmap(track,canvasId='heatmapCanvas'){
+ const c=document.getElementById(canvasId); if(!c)return;
  const ctx=c.getContext('2d'), w=c.width,h=c.height;
  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0b1114';ctx.fillRect(0,0,w,h);
  if(!track?.length){
@@ -538,29 +551,38 @@ function renderCompare(){
  sel.innerHTML=acts.map((a,i)=>`<label class="checkline"><input class="cmp" type="checkbox" data-i="${i}" onchange="runCompare()"> ${a.date} · ${a.type} · ${Number(a.distance).toFixed(2)} km · FC ${a.hr||'—'} · HI ${Math.round(a.highIntensity||0)} m</label>`).join('')||'<p class="muted">Necesitas al menos dos actividades con métricas.</p>';
  renderStrengthCompare();
 }
+const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 window.runCompare=function(){
- const acts=S.activities.filter(a=>['football','run'].includes(a.type)&&a.distance).slice(-16).reverse(),ids=[...document.querySelectorAll('.cmp:checked')].slice(0,2).map(x=>+x.dataset.i);
- document.querySelectorAll('.cmp:checked').forEach((x,i)=>{if(i>=2)x.checked=false});if(ids.length<2)return;
- const a=acts[ids[0]],b=acts[ids[1]];if(a.type!==b.type){document.getElementById('compareResult').innerHTML='<div class="warning">Compara actividades del mismo tipo.</div>';return}
- const pct=(x,y)=>y?((x-y)/y*100):null,delta=(x,y,unit='')=>x&&y?`${x-y>=0?'+':''}${(x-y).toFixed(1)}${unit}`:'—';
- const amin=a.moving||a.duration,bmin=b.moving||b.duration,ampm=amin?a.distance*1000/amin:0,bmpm=bmin?b.distance*1000/bmin:0;
- const dist=pct(b.distance,a.distance),hi=pct(b.highIntensity,a.highIntensity),mmin=pct(bmpm,ampm),hr=a.hr&&b.hr?b.hr-a.hr:null;
- let verdict='Cambios mixtos; sigue acumulando sesiones comparables.';
- if(hr!=null&&mmin!=null&&mmin>2&&hr<=0)verdict='Señal favorable de eficiencia: produces más metros/min con una FC media igual o menor.';
- else if(hr!=null&&hi!=null&&hi>5&&hr<=2)verdict='Más alta intensidad con coste cardiovascular parecido.';
- document.getElementById('compareResult').innerHTML=`<h2>${a.date} → ${b.date}</h2><div class="grid g3">
-  <div class="metric"><div class="k">Distancia</div><div class="v">${dist==null?'—':(dist>=0?'+':'')+dist.toFixed(1)+'%'}</div></div>
-  <div class="metric"><div class="k">m/min</div><div class="v">${mmin==null?'—':(mmin>=0?'+':'')+mmin.toFixed(1)+'%'}</div></div>
-  <div class="metric"><div class="k">FC media</div><div class="v">${hr==null?'—':(hr>=0?'+':'')+hr+' ppm'}</div></div>
-  <div class="metric"><div class="k">Alta intensidad</div><div class="v">${hi==null?'—':(hi>=0?'+':'')+hi.toFixed(1)+'%'}</div></div>
-  <div class="metric"><div class="k">Sprints >18</div><div class="v">${delta(b.absSprints,a.absSprints)}</div></div>
-  <div class="metric"><div class="k">Vel. punta</div><div class="v">${delta(b.topSpeed,a.topSpeed,' km/h')}</div></div>
- </div><p class="notice" style="margin-top:12px">${verdict}</p>`;
-}
+ const acts=S.activities.filter(a=>['football','run'].includes(a.type)&&a.distance).slice(-16).reverse();
+ const inputs=[...document.querySelectorAll('.cmp:checked')];
+ inputs.slice(5).forEach(x=>x.checked=false);
+ const selected=inputs.slice(0,5).map(x=>acts[Number(x.dataset.i)]).sort((a,b)=>a.date.localeCompare(b.date));
+ const el=document.getElementById('compareResult');
+ if(selected.length<2){el.textContent='Selecciona entre 2 y 5 actividades.';return;}
+ if(selected.some(a=>a.type!==selected[0].type)){el.textContent='Selecciona actividades del mismo deporte.';return;}
+ const metric=(a,key)=>a.metrics?.[key]??cloudAnalyses.find(x=>x.activity_id===a.id)?.summary?.[key]??null;
+ const fields=[['Distancia (km)',a=>a.distance],['Movimiento (min)',a=>a.moving||null],['FC media (ppm)',a=>a.hr||null],['Carga (min × RPE)',a=>a.rpe&&a.duration?a.rpe*a.duration:null]];
+ if(selected[0].type==='football')fields.push(['m/min',a=>a.moving?a.distance*1000/a.moving:null],['Z4/Z5 (%)',a=>metric(a,'hrZone45Share')===null?null:metric(a,'hrZone45Share')*100],['Alta intensidad (m)',a=>metric(a,'highIntensityM')],['Sprints relativos',a=>metric(a,'sprintCount')],['Sprints >18 km/h',a=>metric(a,'absoluteSprintCount')],['Velocidad robusta (km/h)',a=>metric(a,'robustTopKmh')],['P99 velocidad (km/h)',a=>metric(a,'p99TopKmh')],['Primeros 10 min (m)',a=>metric(a,'first10MinM')],['Últimos 10 min (m)',a=>metric(a,'last10MinM')]);
+ else fields.push(['Ritmo (min/km)',a=>a.pace?a.pace/60:null],['Desnivel (m)',a=>metric(a,'elevationGainM')]);
+ const fmt=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(1);
+ const head='<tr><th>Métrica</th>'+selected.map(a=>'<th>'+escapeHtml(a.date)+'</th>').join('')+'</tr>';
+ el.innerHTML='<div style="overflow-x:auto"><table><thead>'+head+'</thead><tbody>'+fields.map(([name,get])=>'<tr><th>'+name+'</th>'+selected.map(a=>'<td>'+fmt(get(a))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+ const first=selected[0],last=selected.at(-1),oldHi=metric(first,'highIntensityM'),newHi=metric(last,'highIntensityM');
+ if(first.type==='football'&&oldHi>0&&newHi!=null&&first.hr>0&&last.hr>0){const delta=(newHi-oldHi)/oldHi*100,hr=last.hr-first.hr;el.innerHTML+='<p class="notice">Última frente a primera: '+(delta>=0?'+':'')+delta.toFixed(0)+' % de alta intensidad y '+(hr>=0?'+':'')+hr+' ppm de FC media. Asociación ≠ causalidad; revisa duración, posición y contexto.</p>';}
+ if(first.type==='run'&&first.hr&&last.hr&&Math.abs(first.hr-last.hr)<=3&&first.pace&&last.pace)el.innerHTML+='<p class="notice">FC similar (±3 ppm): diferencia de ritmo '+(last.pace-first.pace).toFixed(0)+' s/km. Revisa desnivel y condiciones; no prueba por sí sola una mejora fisiológica.</p>';
+ if(first.type==='football')selected.forEach((act,i)=>{const track=cloudAnalyses.find(x=>x.activity_id===act.id)?.track_points;if(track?.length){const canvas=document.createElement('canvas');canvas.id='compareHeatmap'+i;canvas.width=400;canvas.height=260;canvas.style.cssText='width:100%;max-width:400px';canvas.setAttribute('aria-label','Recorrido relativo '+act.date);el.append(canvas);drawHeatmap(track,canvas.id);}});
+};
 function renderStrengthCompare(){
- const el=document.getElementById('strengthCompare');if(!el)return;const by={};for(const s of cloudSets||[]){(by[s.exercise]??=[]).push(s)}
- const rows=Object.entries(by).slice(0,8).map(([ex,arr])=>{arr.sort((a,b)=>new Date(a.performed_at)-new Date(b.performed_at));const first=arr[0],last=arr.at(-1);const v1=(first.weight_kg||0)*(first.reps||0),v2=(last.weight_kg||0)*(last.reps||0);return `<div class="checkline"><b style="min-width:130px">${ex}</b><span>${first.weight_kg||0}×${first.reps||0}</span> → <span>${last.weight_kg||0}×${last.reps||0}</span><span class="muted">${v1?((v2-v1)/v1*100).toFixed(0)+'%':'—'}</span></div>`}).join('');
- el.innerHTML=rows||'Todavía no hay suficientes series.';
+ const el=document.getElementById('strengthCompare');if(!el)return;const by={};
+ for(const s of cloudSets){const date=iso(new Date(s.performed_at)),ex=s.exercise||'Sin ejercicio';((by[ex]??={})[date]??=[]).push(s);}
+ el.innerHTML=Object.entries(by).slice(0,12).map(([exercise,days])=>{
+ const rows=Object.entries(days).sort(([a],[b])=>a.localeCompare(b)).slice(-5).map(([date,sets])=>{
+ const reps=sets.reduce((sum,s)=>sum+Number(s.reps||0),0),volume=sets.reduce((sum,s)=>sum+Number(s.reps||0)*Number(s.weight_kg||0),0);
+ const estimates=sets.filter(s=>s.weight_kg>0&&s.reps>=1&&s.reps<=12).map(s=>Number(s.weight_kg)*(1+Number(s.reps)/30));
+ return '<tr><td>'+date+'</td><td>'+sets.length+'</td><td>'+reps+'</td><td>'+volume.toFixed(0)+'</td><td>'+(estimates.length?Math.max(...estimates).toFixed(1):'—')+'</td></tr>';
+ }).join('');return '<h3>'+escapeHtml(exercise)+'</h3><div style="overflow-x:auto"><table><tr><th>Fecha</th><th>Series</th><th>Reps</th><th>kg·rep</th><th>1RM estimado</th></tr>'+rows+'</table></div>';
+ }).join('')||'Registra series para comparar sesiones por ejercicio.';
+ if(cloudSets.length)el.innerHTML+='<p class="small muted">1RM orientativo (Epley, series de 1–12 reps). El tonelaje depende también del número de series y no equivale a fuerza máxima.</p>';
 }
 function targetsForToday(){
  const p=adaptivePlan(new Date()),football=footballScheduled(new Date()),carbs=football?390:(p.kind==='rest'?275:330);
