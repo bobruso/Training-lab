@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909home70';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909home70';
-import { createClient } from "./vendor/supabase.js?v=20260909home70";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909activity74';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909activity74';
+import { createClient } from "./vendor/supabase.js?v=20260909activity74";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -111,20 +111,20 @@ function loadLabel(plan){
  return ['baja','250–300 g'];
 }
 const recipes=[
- ['desayuno','Avena + skyr + plátano',34,82,14,'Avena, leche, skyr, plátano y nueces.'],
- ['desayuno','Tostadas + huevos + fruta',32,68,20,'Pan, tomate, AOVE, 3 huevos, yogur y fruta.'],
- ['comida','Arroz con pollo',43,95,18,'Arroz abundante, pollo, verduras y AOVE.'],
- ['comida','Pasta boloñesa',42,105,19,'Pasta, carne magra, tomate y parmesano.'],
- ['comida','Lentejas + arroz + huevo',35,100,17,'Legumbre + cereal + huevo.'],
- ['merienda','Batido de crecimiento',38,72,16,'Leche, whey, plátano, avena y crema de cacahuete.'],
- ['merienda','Bocadillo + yogur + fruta',31,74,11,'Pavo o tortilla, yogur y fruta.'],
- ['cena','Salmón + patata',40,70,24,'Salmón, patata y ensalada.'],
- ['cena','Burritos de pollo y arroz',44,92,20,'Tortillas, pollo, arroz, frijoles y verduras.'],
- ['recena','Skyr + avena + fruta',28,46,8,'Proteína fácil antes de dormir.'],
- ['recena','Leche + plátano + tostada',20,58,10,'Sencillo si faltan calorías.']
+ ['desayuno','Avena + skyr + plátano',34,82,14,'Avena, leche, skyr, plátano y nueces.','https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&w=900&q=78'],
+ ['desayuno','Tostadas + huevos + fruta',32,68,20,'Pan, tomate, AOVE, 3 huevos, yogur y fruta.','https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=78'],
+ ['comida','Arroz con pollo',43,95,18,'Arroz abundante, pollo, verduras y AOVE.','https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=900&q=78'],
+ ['comida','Pasta boloñesa',42,105,19,'Pasta, carne magra, tomate y parmesano.','https://images.unsplash.com/photo-1563379926898-05f4575a45d8?auto=format&fit=crop&w=900&q=78'],
+ ['comida','Lentejas + arroz + huevo',35,100,17,'Legumbre + cereal + huevo.','https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=78'],
+ ['merienda','Batido de crecimiento',38,72,16,'Leche, whey, plátano, avena y crema de cacahuete.','https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=900&q=78'],
+ ['merienda','Bocadillo + yogur + fruta',31,74,11,'Pavo o tortilla, yogur y fruta.','https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=78'],
+ ['cena','Salmón + patata',40,70,24,'Salmón, patata y ensalada.','https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=78'],
+ ['cena','Burritos de pollo y arroz',44,92,20,'Tortillas, pollo, arroz, frijoles y verduras.','https://images.unsplash.com/photo-1534352956036-cd81e27dd615?auto=format&fit=crop&w=900&q=78'],
+ ['recena','Skyr + avena + fruta',28,46,8,'Proteína fácil antes de dormir.','https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=78'],
+ ['recena','Leche + plátano + tostada',20,58,10,'Sencillo si faltan calorías.','https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?auto=format&fit=crop&w=900&q=78']
 ];
 function mealForHour(h){if(h>=13&&h<15)return'desayuno';if(h>=15&&h<18)return'comida';if(h>=18&&h<21)return'merienda';if(h>=21||h<1)return'cena';return'recena'}
-function recipeCard(r){let [meal,n,p,c,f,desc]=r;return `<div class="card recipe"><span class="tag">${meal}</span><h3>${n}</h3><div class="meta">P ${p} g · HC ${c} g · G ${f} g</div><p class="muted">${desc}</p><a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" href="https://cookidoo.es/search/es-ES?query=${encodeURIComponent(n)}">Buscar en Cookidoo</a></div>`}
+function recipeCard(r){let [meal,n,p,c,f,desc,img]=r;return `<div class="card recipe">${img?`<img class="recipe-media" loading="lazy" decoding="async" src="${img}" alt="${n}" onerror="this.style.display='none'">`:''}<span class="tag">${meal}</span><h3>${n}</h3><div class="meta">P ${p} g · HC ${c} g · G ${f} g</div><p class="muted">${desc}</p><a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" href="https://cookidoo.es/search/es-ES?query=${encodeURIComponent(n)}">Buscar en Cookidoo</a></div>`}
 function renderToday(){
  const n=new Date(), plan=adaptivePlan(n), [load,carbs]=loadLabel(plan), fat=fatigueFor(n), meal=mealForHour(n.getHours());
  document.getElementById('todayText').textContent='Hoy es '+DAYS[n.getDay()][0].toUpperCase()+DAYS[n.getDay()].slice(1);
@@ -322,7 +322,7 @@ window.registerFit=async function registerFit(){
  await loadCloud();
  navTo('progreso');
 }
-window.navTo=function navTo(p){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===p));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('on',x.dataset.page===p));window.scrollTo({top:0,behavior:'smooth'})}
+window.navTo=function navTo(p){document.body.dataset.section=p;document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===p));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('on',x.dataset.page===p));const active=document.querySelector(`nav [data-page="${p}"]`);if(active&&window.matchMedia('(max-width: 700px)').matches)active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});window.scrollTo({top:0,behavior:'smooth'})}
 window.openRegister=function openRegister(){window.navTo('registro')}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>window.navTo(b.dataset.page)));
 document.querySelectorAll('[data-football-metric]').forEach(b=>b.addEventListener('click',()=>window.setFootballTrendMetric(b.dataset.footballMetric)));
@@ -359,7 +359,7 @@ async function loadCloud(){
  else window.TrainingLab.update({lastSync:new Date().toISOString()});
  window.TrainingLab.update({activities:acts.data?.length||0,sleep:sleep.data?.length||0});
  if(!acts.error){
-   S.activities=acts.data.map(a=>({id:a.id,date:a.activity_date,type:a.activity_type,source:a.source,started_at:a.started_at,duration:Number(a.duration_min)||0,moving:Number(a.moving_time_min)||0,rpe:Number(a.rpe)||0,distance:Number(a.distance_km)||0,hr:Number(a.avg_hr)||0,hrmax:Number(a.max_hr)||0,kcal:Number(a.calories)||0,topSpeed:Number(a.top_speed_kmh)||0,highIntensity:Number(a.high_intensity_m)||0,sprints:Number(a.sprint_count)||0,absSprints:Number(a.absolute_sprint_count)||0,pace:Number(a.avg_pace_sec_km)||0,metrics:a.metrics||{},fitName:a.source==='fit'?a.title:null}));
+   S.activities=acts.data.map(a=>({id:a.id,date:a.activity_date,type:a.activity_type,source:a.source,title:a.title||null,started_at:a.started_at,duration:Number(a.duration_min)||0,moving:Number(a.moving_time_min)||0,rpe:Number(a.rpe)||0,distance:Number(a.distance_km)||0,hr:Number(a.avg_hr)||0,hrmax:Number(a.max_hr)||0,kcal:Number(a.calories)||0,topSpeed:Number(a.top_speed_kmh)||0,highIntensity:Number(a.high_intensity_m)||0,sprints:Number(a.sprint_count)||0,absSprints:Number(a.absolute_sprint_count)||0,pace:Number(a.avg_pace_sec_km)||0,metrics:a.metrics||{},fitName:a.source==='fit'?a.title:null}));
  }
  if(!weights.error) S.weights=weights.data.map(w=>({date:w.measured_on,kg:Number(w.weight_kg)}));
  if(!statuses.error){
@@ -1110,12 +1110,14 @@ let autoHealthConnectQueued=false;
 function queueAutoHealthConnectSync(){
  if(!currentUser||autoHealthConnectQueued)return;
  if(!(window.TrainingLabAndroid&&typeof window.TrainingLabAndroid.syncHealthConnect==='function'))return;
- const key='traininglab-hc-auto:'+currentUser.id;
- if(sessionStorage.getItem(key))return;
- sessionStorage.setItem(key,String(Date.now()));
+ const key='traininglab-hc-auto:'+currentUser.id,now=Date.now(),last=Number(sessionStorage.getItem(key)||0);
+ if(now-last<90000)return;
+ sessionStorage.setItem(key,String(now));
  autoHealthConnectQueued=true;
- setTimeout(()=>{autoHealthConnectQueued=false;window.syncHealthConnect({silent:true,auto:true}).catch(e=>window.TrainingLab.report('Health Connect automático',e));},500);
+ setTimeout(()=>{autoHealthConnectQueued=false;window.syncHealthConnect({silent:true,auto:true}).catch(e=>window.TrainingLab.report('Health Connect automático',e));},350);
 }
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')queueAutoHealthConnectSync();});
+window.addEventListener('focus',()=>queueAutoHealthConnectSync());
 window.syncHealthConnect=async function(options={}){
  if(!currentUser)return alert('Inicia sesión primero: Health Connect necesita sincronizar los datos con tu usuario.');
  const {data:{session}}=await supabase.auth.getSession();
@@ -1208,15 +1210,38 @@ window.equipItem=async function(index){
  const {error}=await supabase.from('game_state').update({equipped}).eq('user_id',currentUser.id);if(error)return alert(error.message);
  cloudGame={...cloudGame,equipped};renderRpg();
 }
+function formatActivityDuration(mins){
+ const sec=Math.max(0,Math.round(Number(mins||0)*60));return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+}
+function activityLabel(type){return ({run:'Carrera',football:'Fútbol',gym:'Fuerza',walk:'Paseo',other:'Actividad'})[type]||'Actividad';}
+function activityIcon(type){return ({run:'🏃',football:'⚽',gym:'🏋️',walk:'🚶',other:'●'})[type]||'●';}
+function activityPace(a){
+ const sec=Number(a.pace)||(a.distance>0&&a.duration>0?(a.duration*60/a.distance):0);if(!sec)return null;
+ return `${Math.floor(sec/60)}′${String(Math.round(sec%60)).padStart(2,'0')}″/km`;
+}
+function renderHomeActivities(){
+ const el=document.getElementById('homeRecentActivities');if(!el)return;
+ const acts=[...S.activities].sort((a,b)=>new Date(b.started_at||b.date+'T12:00:00')-new Date(a.started_at||a.date+'T12:00:00')).slice(0,3);
+ if(!acts.length){el.innerHTML='<div class="card activity-empty"><b>Aún no hay actividades sincronizadas.</b><div class="muted small">Al abrir la APK, Training Lab consulta Health Connect automáticamente.</div></div>';return;}
+ el.innerHTML=acts.map(a=>{
+   const primary=a.distance>0?`${Number(a.distance).toFixed(2)} km`:formatActivityDuration(a.duration);
+   const pace=a.type==='run'?activityPace(a):null;
+   const meta=[a.duration?formatActivityDuration(a.duration):null,pace,a.hr?`${Math.round(a.hr)} ppm`:null,a.kcal?`${Math.round(a.kcal)} kcal`:null].filter(Boolean).join(' · ');
+   const when=a.started_at?new Date(a.started_at).toLocaleString('es-ES',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):new Date(a.date+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
+   const source=a.source==='health_connect'?'Health Connect':a.source==='fit'?'FIT':'Training Lab';
+   return `<button class="activity-card activity-${escapeHtml(a.type||'other')}" onclick="navTo('entrenos')"><div class="activity-copy"><div class="activity-kicker">${activityIcon(a.type)} ${escapeHtml(activityLabel(a.type))}</div><div class="activity-primary">${primary}</div><div class="activity-meta">${escapeHtml(meta||'Métricas pendientes')}</div><div class="activity-title">${escapeHtml(a.title||activityLabel(a.type))}</div><div class="activity-source">${escapeHtml(when)} · ${source}</div></div><div class="activity-visual" aria-hidden="true"><span>${activityIcon(a.type)}</span><svg viewBox="0 0 120 70" preserveAspectRatio="none"><path d="M5 53 C22 19,30 61,47 30 S70 18,77 49 S96 60,115 17"/></svg></div></button>`;
+ }).join('');
+}
+
 function renderV5(){
- renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderFootballTrends();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
+ renderHomeActivities();renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderFootballTrends();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
 }
 
 function renderAll(){renderToday();renderWeek();renderHistory();updateProgress();renderLatestAnalysis();renderV5()}
 document.getElementById('actDate').value=iso();document.getElementById('weightDate').value=iso();
 document.getElementById('injuryDate').value=iso();
 document.getElementById('allRecipes').innerHTML=recipes.map(recipeCard).join('');
-renderAll();setInterval(()=>{renderToday();renderSmartHome();renderCoachTasks();},30000);
+document.body.dataset.section=document.querySelector('.page.on')?.id||'hoy';renderAll();setInterval(()=>{renderToday();renderSmartHome();renderCoachTasks();},30000);
 
 window.TrainingLab.update({appReady:true});
 void initAuth();

@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v7.3 · build header73">
-<script src="./runtime.js?v=20260909header73" defer></script>
+<meta name="build" content="v7.4 · build activity74">
+<script src="./runtime.js?v=20260909activity74" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909header73">
+<link rel="stylesheet" href="./styles.css?v=20260909activity74">
 </head>
 <body>
 <div class="app">
@@ -76,6 +76,11 @@
     <div class="actions"><button class="btn" onclick="setFootball(true)">Sí, juego</button><button class="btn alt" onclick="setFootball(false)">No juego</button></div>
     <div id="footballStatus" class="small muted" style="margin-top:9px"></div>
    </div>
+  </div>
+
+  <div class="section home-activity-section">
+   <div class="sectionhead"><div><div class="eyebrow">Actividad reciente</div><h2>Últimos entrenamientos</h2></div><button class="btn alt" onclick="navTo('entrenos')">Ver todas</button></div>
+   <div id="homeRecentActivities" class="home-activity-list"></div>
   </div>
 
   <div class="section card" id="matchDayPanel" style="display:none">
@@ -396,6 +401,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260909header73"></script>
+<script type="module" src="./app.js?v=20260909activity74"></script>
 </body>
 </html>
