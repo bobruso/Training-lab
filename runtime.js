@@ -59,7 +59,30 @@
     finally {passwordBusy=false;button.disabled=false;button.textContent=label;}
   });
   document.addEventListener('keydown',e=>{if(['authEmail','authPassword'].includes(e.target.id)&&e.key==='Enter'){e.preventDefault();document.querySelector('[data-auth=signin],[data-auth=update]')?.click();}});
+  function installAccountSettings(){
+    const cloud=document.getElementById('cloudCard'),nav=document.querySelector('nav');
+    if(!cloud||!nav)return;
+    let section=document.getElementById('ajustes');
+    if(!section){
+      section=document.createElement('section');
+      section.className='page';
+      section.id='ajustes';
+      section.innerHTML=`<div class="sectionhead"><h2>Ajustes / Perfil</h2><span class="muted">cuenta, sincronización y preferencias</span></div><div class="grid g2"><div id="settingsAccountSlot"></div><div class="card"><div class="eyebrow">Datos y dispositivos</div><h2>COROS / Health Connect</h2><p class="muted">Training Lab recibe los datos del reloj mediante Health Connect cuando COROS comparte allí tus métricas.</p><div class="actions"><button class="btn" id="settingsHealthSync">Sincronizar ahora</button><button class="btn alt" id="settingsSources">Ver fuentes</button></div><p class="small muted" style="margin-top:10px">Contraseña y cierre de sesión quedan aquí para no ocupar espacio en la pantalla principal.</p></div></div>`;
+      (document.getElementById('progreso')||document.querySelector('.bottom'))?.before(section);
+    }
+    (section.querySelector('#settingsAccountSlot')||section).appendChild(cloud);
+    cloud.style.marginBottom='0';
+    if(!nav.querySelector('[data-page="ajustes"]')){
+      const b=document.createElement('button');b.dataset.page='ajustes';b.textContent='Ajustes';
+      b.addEventListener('click',()=>window.navTo?window.navTo('ajustes'):(()=>{document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id==='ajustes'));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('on',x.dataset.page==='ajustes'));})());
+      nav.appendChild(b);
+    }
+    const sync=section.querySelector('#settingsHealthSync');if(sync)sync.onclick=()=>window.syncHealthConnect?.();
+    const sources=section.querySelector('#settingsSources');if(sources)sources.onclick=()=>window.navTo?.('entrenos');
+    const profile=document.querySelector('.top .profile');if(profile){profile.style.cursor='pointer';profile.title='Abrir Ajustes / Perfil';profile.onclick=()=>window.navTo?.('ajustes');}
+  }
   document.addEventListener('DOMContentLoaded',()=>{
+    installAccountSettings();
     const badge=document.getElementById('buildVersion');if(badge)badge.textContent=state.frontend;
     if(new URLSearchParams(location.search).get('debug')==='1'){
       document.getElementById('diagnostics').hidden=false;
