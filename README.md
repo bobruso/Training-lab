@@ -156,9 +156,15 @@ como:
 
 `https://bobruso.github.io/Training-lab/`
 
-Antes de probar el login desde Android, añade en Supabase Auth:
+Antes de probar el login desde Android, configura en Supabase Auth:
 
-- `https://bobruso.github.io/Training-lab/**`
+**Site URL**
+
+`https://bobruso.github.io/Training-lab/`
+
+**Redirect URLs**
+
+- `https://bobruso.github.io/Training-lab/`
 - `traininglab://auth`
 
 Después abre `android-companion` en Android Studio y compila.
