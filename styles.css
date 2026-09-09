@@ -247,3 +247,27 @@ nav button.on{background:var(--section-accent);color:#101417;border-color:var(--
 .adaptive-step{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}.adaptive-step:last-child{border-bottom:0}
 .adaptive-analysis-card{background:linear-gradient(180deg,#131c20,#0f1518)}
 @media(max-width:700px){.home-activity-now{margin-left:-4px;margin-right:-4px;padding:12px;border-radius:20px}.adaptive-action-grid{grid-template-columns:1fr!important}.home-activity-now+.hero{margin-top:4px}}
+
+
+/* nav-v76: no visible horizontal scrollbar on section navigation */
+nav{
+  overflow-x:hidden;
+  overflow-y:visible;
+  flex-wrap:wrap;
+  align-content:flex-start;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+nav::-webkit-scrollbar{display:none;width:0;height:0}
+nav button{flex:0 0 auto}
+
+@media(max-width:700px){
+  nav{
+    overflow-x:auto;
+    overflow-y:hidden;
+    flex-wrap:nowrap;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+  }
+  nav::-webkit-scrollbar{display:none;width:0;height:0}
+}
