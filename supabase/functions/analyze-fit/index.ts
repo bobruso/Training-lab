@@ -13,6 +13,7 @@ function json(body: unknown, status = 200) {
 }
 
 function num(v: unknown): number | null {
+  if(v===null || v===undefined || v==='')return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -53,6 +54,10 @@ function normalizeCoord(v: unknown) {
 function episodeCount(points: Array<{t:number,s:number}>, cutoff: number, minSeconds = 1.5) {
   let count = 0, start: number | null = null, last: number | null = null;
   for (const p of points) {
+    if(last!=null && (p.t-last)>10000){
+      if(start!=null && (last-start)/1000>=minSeconds)count++;
+      start=last=null;
+    }
     if (p.s >= cutoff) {
       if (start == null) start = p.t;
       last = p.t;
@@ -161,7 +166,7 @@ function makeStrengthReport(m: any) {
   return { analysis, strengths, improvements };
 }
 
-export default {
+const handler = {
   async fetch(req: Request) {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -193,11 +198,13 @@ export default {
     if (fitError || !fitRow) return json({ error: "FIT record not found" }, 404);
     if (fitRow.user_id !== userId) return json({ error: "Forbidden" }, 403);
     if (!fitRow.activity_id || !fitRow.storage_path) return json({ error: "FIT record is incomplete" }, 400);
+    if(!fitRow.storage_path.startsWith(userId+'/') || fitRow.storage_path.split('/').some((p:string)=>p==='..'||p==='.'))return json({error:"Invalid FIT path"},403);
 
     const { data: activityRow, error: activityError } = await supabase
       .from("activities")
       .select("id,activity_type")
       .eq("id", fitRow.activity_id)
+      .eq("user_id", userId)
       .single();
     if (activityError || !activityRow) return json({ error: "Activity record not found" }, 404);
     const activityType = String(activityRow.activity_type || "football");
@@ -208,8 +215,10 @@ export default {
       const { data: blob, error: dlError } = await supabase.storage.from("fit-files").download(fitRow.storage_path);
       if (dlError || !blob) throw new Error(dlError?.message || "Could not download FIT");
       const bytes = await blob.arrayBuffer();
+      if(bytes.byteLength>20*1024*1024)throw new Error("FIT exceeds 20 MB limit");
+      if(bytes.byteLength<12 || new TextDecoder().decode(new Uint8Array(bytes,8,4))!=='.FIT')throw new Error("Invalid FIT header");
 
-      const parser = new FitParser({ mode: "list", speedUnit: "km/h", lengthUnit: "km", elapsedRecordField: true, force: true });
+      const parser = new FitParser({ mode: "list", speedUnit: "km/h", lengthUnit: "km", elapsedRecordField: true, force: false });
       const parsed: any = await parser.parseAsync(bytes);
       const records: any[] = Array.isArray(parsed.records) ? parsed.records : [];
       const sessions: any[] = Array.isArray(parsed.sessions) ? parsed.sessions : [];
@@ -235,7 +244,7 @@ export default {
       const robustTop = top5.length ? avg(top5) : p99;
       const relativeCutoff = Math.max(15.5, robustTop * .82);
 
-      let movingSec = 0, highIntensityM = 0, first10MinM = 0, elevationGainM = 0;
+      let movingSec = 0, highIntensityM = 0, first10MinM = 0, last10MinM = 0, elevationGainM = 0;
       const speedZones = [
         {name:"Caminar",min:0,max:7,seconds:0,distance_m:0},
         {name:"Trote",min:7,max:14.4,seconds:0,distance_m:0},
@@ -246,20 +255,23 @@ export default {
       const hrValues = pts.map((p:any)=>p.hr).filter((v:any)=>v != null) as number[];
       const profileRes = await supabase.from("profiles").select("hr_max_bpm").eq("user_id",userId).maybeSingle();
       const recordedMaxHr = hrValues.length ? Math.max(...hrValues) : (num(session.max_heart_rate) ?? null);
-      const refMaxHr = num(profileRes.data?.hr_max_bpm) ?? recordedMaxHr ?? 180;
+      const configuredMax=num(profileRes.data?.hr_max_bpm);
+      const refMaxHr = configuredMax && configuredMax>0 ? configuredMax : (recordedMaxHr && recordedMaxHr>0 ? recordedMaxHr : 180);
       const hrBounds = [0.5,0.6,0.7,0.8,0.9,1.01].map(x=>refMaxHr*x);
       const hrZones = [1,2,3,4,5].map((z,i)=>({zone:z,min_bpm:Math.round(hrBounds[i]),max_bpm:Math.round(hrBounds[i+1]),seconds:0}));
       let accelCount = 0, decelCount = 0;
 
       for (let i=1;i<pts.length;i++) {
         const a=pts[i-1], b=pts[i];
-        const dt=Math.max(0,Math.min(10,(b.t-a.t)/1000)); if(!dt) continue;
+        const dt=(b.t-a.t)/1000; if(dt<=0||dt>10) continue; // A recording gap is not a continuous effort.
         let dm=0;
         if(a.distanceKm!=null && b.distanceKm!=null && b.distanceKm>=a.distanceKm) dm=(b.distanceKm-a.distanceKm)*1000;
         else dm=haversineM(a,b);
+        if(!Number.isFinite(dm)||dm<0||dm/dt>80/3.6)dm=0;
         if (b.speed > .5) movingSec += dt;
         if (b.speed >= 13) highIntensityM += dm;
         if ((b.t-pts[0].t) <= 600000) first10MinM += dm;
+        if ((pts.at(-1).t-a.t) <= 600000) last10MinM += dm;
         const z=speedZones.find((x:any)=>b.speed>=x.min && b.speed<x.max); if(z){z.seconds+=dt;z.distance_m+=dm;}
         if (b.hr!=null) {
           const zi=Math.min(4,Math.max(0,Math.floor((b.hr/refMaxHr-.5)/.1)));
@@ -270,6 +282,7 @@ export default {
       }
 
       const totalDurationSec = num(session.total_elapsed_time ?? session.total_timer_time) ?? (pts.length>1 ? (pts.at(-1).t-pts[0].t)/1000 : 0);
+      if(!pts.length)movingSec=num(session.total_timer_time)??0;
       const distanceKm = num(session.total_distance) ?? (pts.length && pts.at(-1).distanceKm!=null ? pts.at(-1).distanceKm : 0);
       const avgHr = Math.round(num(session.avg_heart_rate) ?? avg(hrValues));
       const maxHr = Math.round(recordedMaxHr ?? 0);
@@ -295,15 +308,20 @@ export default {
         distanceKm:+distanceKm.toFixed(3), durationSec:Math.round(totalDurationSec), movingTimeSec:Math.round(movingSec),
         avgHr:avgHr||null, maxHr:maxHr||null, calories:calories||null, rawTopKmh:+rawTop.toFixed(2), robustTopKmh:+robustTop.toFixed(2), p99TopKmh:+p99.toFixed(2),
         relativeSprintCutoffKmh:+relativeCutoff.toFixed(2), sprintCount, absoluteSprintCount, highIntensityM:+highIntensityM.toFixed(1), highIntensityShare:+highIntensityShare.toFixed(4),
-        metersPerMovingMin:+metersPerMovingMin.toFixed(1), accelerations:accelCount, decelerations:decelCount, first10MinM:+first10MinM.toFixed(1), elevationGainM:+elevationGainM.toFixed(1), referenceMaxHr:Math.round(refMaxHr),
+        metersPerMovingMin:+metersPerMovingMin.toFixed(1), accelerations:accelCount, decelerations:decelCount, first10MinM:totalDurationSec>=600?+first10MinM.toFixed(1):null, last10MinM:totalDurationSec>=600?+last10MinM.toFixed(1):null, elevationGainM:+elevationGainM.toFixed(1), referenceMaxHr:Math.round(refMaxHr), hrZoneReference:configuredMax?'profile':'estimated',
         hrZone45Share:+hrZone45Share.toFixed(4), parser:"fit-file-parser@5.0.2"
       };
       const report = activityType === "gym"
         ? makeStrengthReport(summary)
         : makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});
+      if(activityType!=='gym')report.analysis+=` ${sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;
+      if(!pts.length){
+        Object.assign(summary,{rawTopKmh:null,robustTopKmh:null,p99TopKmh:null,sprintCount:null,absoluteSprintCount:null,highIntensityM:null,highIntensityShare:null,accelerations:null,decelerations:null,first10MinM:null,last10MinM:null,hrZone45Share:null});
+        if(activityType!=='gym')report.analysis='El archivo incluye métricas de sesión, pero no muestras temporales. No se pueden calcular zonas, sprints ni distribución del esfuerzo.';
+      }
       const startMs = pts[0]?.t ?? ts(session.start_time ?? session.timestamp);
       const startedAt = startMs ? new Date(startMs).toISOString() : null;
-      const activityDate = startedAt ? startedAt.slice(0,10) : new Date().toISOString().slice(0,10);
+      const activityDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(startedAt||Date.now()));
 
       const { error: actError } = await supabase.from("activities").update({
         activity_date:activityDate, started_at:startedAt, duration_min:+(totalDurationSec/60).toFixed(2), moving_time_min:+(movingSec/60).toFixed(2),
@@ -318,6 +336,7 @@ export default {
           .from("strength_sets")
           .delete()
           .eq("activity_id", fitRow.activity_id)
+          .eq("metadata->>source", "fit")
           .eq("user_id", userId);
         if (clearSetsError) throw new Error(clearSetsError.message);
 
@@ -350,7 +369,8 @@ export default {
       },{onConflict:"activity_id"});
       if(analysisError) throw new Error(analysisError.message);
 
-      await supabase.from("fit_files").update({parser_version:"fit-v2 / fit-file-parser@5.0.2",parse_status:"parsed",parse_error:null,analyzed_at:new Date().toISOString(),analysis_activity_id:fitRow.activity_id}).eq("id",fitFileId);
+      const {error:finishError}=await supabase.from("fit_files").update({parser_version:"fit-v3 / fit-file-parser@5.0.2",parse_status:"parsed",parse_error:null,analyzed_at:new Date().toISOString(),analysis_activity_id:fitRow.activity_id}).eq("id",fitFileId);
+      if(finishError)throw new Error(finishError.message);
 
       return json({ ok:true, activity_id:fitRow.activity_id, summary, report, track_points:trackPoints.length, strength_sets:strengthSets.length });
     } catch (e) {
@@ -360,3 +380,5 @@ export default {
     }
   }
 };
+Deno.serve((req:Request)=>handler.fetch(req));
+export default handler;

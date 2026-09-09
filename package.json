@@ -24,6 +24,7 @@
     "@playwright/test": "1.63.0",
     "@supabase/supabase-js": "2.116.0",
     "esbuild": "0.28.2",
+    "fit-file-parser": "5.0.2",
     "supabase": "2.117.0"
   },
   "private": true
