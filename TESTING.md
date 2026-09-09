@@ -52,3 +52,5 @@ Quedan fuera: entrega real de correo, allowlist de Auth, FIT reales del PACE 4 y
 ## Validación manual de un FIT privado
 
 Ejecutar `node scripts/inspect-fit.mjs "RUTA_AL_ARCHIVO.fit"` desde la raíz. Usa el parser real y el handler de producción con Storage y base de datos simulados en memoria: no sube archivos ni escribe en Supabase. La salida contiene métricas personales; no publicarla ni añadir el FIT a Git. No valida JWT real, RLS ni el flujo de subida. La FC máxima del perfil no se simula: las zonas resultantes son estimadas.
+
+Si se modifica el cálculo de `supabase/functions/analyze-fit/index.ts`, regenerar `vendor/fit-local.js` con `node scripts/build-fit-local.mjs`, ejecutar `npm run release` y probar `tests/fit-local.spec.js`. La prueba verifica análisis sin sesión y cero escrituras de red, además de errores por FIT corrupto.

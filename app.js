@@ -1,5 +1,6 @@
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=33377ca86f';
-import { createClient } from "./vendor/supabase.js?v=33377ca86f";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=2e0f003cb8';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=2e0f003cb8';
+import { createClient } from "./vendor/supabase.js?v=2e0f003cb8";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -273,7 +274,20 @@ window.registerFit=async function registerFit(){
  const el=document.getElementById('fitResult');
  if(!f){el.textContent='Selecciona un archivo .fit.';return}
  if(!/\.fit$/i.test(f.name)||f.size>20*1024*1024){el.textContent='Selecciona un archivo .fit de hasta 20 MB.';return}
- if(!currentUser){el.textContent='Para analizar y guardar el FIT, inicia sesión primero.';return}
+ if(!currentUser){
+   el.textContent='Analizando FIT en este dispositivo…';
+   try {
+     const {summary:s,report}=await analyzeLocalFit(await f.arrayBuffer(),document.getElementById('fitType')?.value||'football');
+     el.textContent=[
+       'Analizado localmente · no guardado en una cuenta.',
+       Math.floor(s.durationSec/60)+':'+String(s.durationSec%60).padStart(2,'0')+' min · '+s.distanceKm+' km · FC '+(s.avgHr??'—')+' / '+(s.maxHr??'—')+' ppm.',
+       report.analysis,
+       ...(report.strengths||[]),...(report.improvements||[])
+     ].join('\n\n');
+     el.style.whiteSpace='pre-line';
+   } catch(error){el.textContent='No se pudo analizar el FIT: '+(error?.message||'Archivo inválido.');}
+   return;
+ }
  el.textContent='1/3 · Subiendo FIT...';
  const fitType=document.getElementById('fitType')?.value||'football';
  const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');

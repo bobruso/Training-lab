@@ -108,3 +108,7 @@ Los scores son heurísticas transparentes, no mediciones fisiológicas validadas
 ## Validación con el usuario presente
 
 El usuario confirma recepción y retorno del magic link en web. Se ejecutó el handler local con un FIT real de fútbol COROS, con CRC estricto: procesamiento correcto, 3614 muestras y track disponible. Distancia, tiempo y FC coinciden con el resumen incluido en el archivo. No se ha importado el archivo a Supabase ni se han publicado sus coordenadas. Se añadió `scripts/inspect-fit.mjs` para repetir esta comprobación con archivos privados. Falta validación de la subida autenticada y FIT de running/fuerza.
+
+## FIT sin sesión
+
+Se permite analizar en el navegador sin iniciar sesión. El resultado se muestra sin persistir en cuenta; con sesión continúa el flujo privado de Storage y Edge Function. Parser local generado desde los cálculos del handler existente mediante `node scripts/build-fit-local.mjs`; regenerarlo cuando cambie `analyze-fit` y ejecutar después `npm run release`. El bundle forma parte del cache versionado. Validación: 20 pruebas de navegador (móvil/escritorio), 12 pruebas Node y FIT privado real con métricas idénticas al handler. Backend y RLS sin cambios.
