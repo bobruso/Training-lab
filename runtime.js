@@ -140,9 +140,47 @@
   }
   window.TrainingLab.checkForUpdate=checkForUpdate;
   window.TrainingLab.forceUpdate=forceUpdate;
+  function installMobileSwipeNavigation(){
+    let start=null;
+    const mobile=()=>window.matchMedia('(max-width: 700px)').matches;
+    const blocked=target=>!!target?.closest?.('input,textarea,select,button,a,[contenteditable="true"],[role="slider"],canvas,svg,.update-dialog');
+    const updateOpen=()=>{const n=document.getElementById('updateNotice');return n&&!n.hidden;};
+    const pages=()=>[...document.querySelectorAll('nav [data-page]')]
+      .map(b=>b.dataset.page)
+      .filter((id,i,a)=>id&&a.indexOf(id)===i&&document.getElementById(id));
+
+    document.addEventListener('touchstart',e=>{
+      if(!mobile()||updateOpen()||e.touches.length!==1||blocked(e.target)){start=null;return;}
+      const t=e.touches[0];start={x:t.clientX,y:t.clientY,time:performance.now(),target:e.target};
+    },{passive:true});
+
+    document.addEventListener('touchend',e=>{
+      if(!start||!mobile()||updateOpen()){start=null;return;}
+      const t=e.changedTouches?.[0];if(!t){start=null;return;}
+      const dx=t.clientX-start.x,dy=t.clientY-start.y,dt=performance.now()-start.time;
+      start=null;
+      const threshold=Math.max(58,window.innerWidth*.14);
+      if(dt>850||Math.abs(dx)<threshold||Math.abs(dx)<Math.abs(dy)*1.35)return;
+      const order=pages(),current=document.querySelector('.page.on')?.id,idx=order.indexOf(current);
+      if(idx<0)return;
+      const next=dx<0?idx+1:idx-1;
+      if(next<0||next>=order.length)return;
+      document.documentElement.dataset.swipeDirection=dx<0?'left':'right';
+      if(typeof window.navTo==='function')window.navTo(order[next]);
+      else {
+        document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===order[next]));
+        document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('on',x.dataset.page===order[next]));
+      }
+      window.scrollTo({top:0,left:0,behavior:'auto'});
+      window.setTimeout(()=>delete document.documentElement.dataset.swipeDirection,260);
+    },{passive:true});
+
+    document.addEventListener('touchcancel',()=>{start=null;},{passive:true});
+  }
   document.addEventListener('DOMContentLoaded',()=>{
     installAccountSettings();
-    const badge=document.getElementById('buildVersion');if(badge)badge.textContent=state.frontend;
+    document.getElementById('buildVersion')?.remove();
+    installMobileSwipeNavigation();
     const previous=sessionStorage.getItem('traininglab-updated-from');
     if(previous){sessionStorage.removeItem('traininglab-updated-from');const st=document.getElementById('settingsUpdateStatus');if(st)st.textContent=`Actualización completada: ${previous} → ${state.frontend}.`; }
     if(new URLSearchParams(location.search).get('debug')==='1'){
