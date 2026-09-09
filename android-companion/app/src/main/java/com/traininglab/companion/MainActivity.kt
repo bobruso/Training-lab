@@ -54,7 +54,14 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         val callback = fileChooserCallback ?: return@registerForActivityResult
         val uris = if (result.resultCode == Activity.RESULT_OK) {
-            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            val parsed = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+                ?: result.data?.data?.let { arrayOf(it) }
+            parsed?.forEach { uri ->
+                runCatching {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            }
+            parsed
         } else null
         callback.onReceiveValue(uris)
         fileChooserCallback = null
@@ -91,7 +98,7 @@ class MainActivity : ComponentActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
-            settings.allowContentAccess = false
+            settings.allowContentAccess = true
 
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -118,9 +125,10 @@ class MainActivity : ComponentActivity() {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "*/*"
                         putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                     }
                     return try {
-                        fileChooserLauncher.launch(intent)
+                        fileChooserLauncher.launch(Intent.createChooser(intent, "Selecciona un archivo .FIT"))
                         true
                     } catch (_: Exception) {
                         fileChooserCallback?.onReceiveValue(null)
