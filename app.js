@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909trends69';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909trends69';
-import { createClient } from "./vendor/supabase.js?v=20260909trends69";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909home70';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909home70';
+import { createClient } from "./vendor/supabase.js?v=20260909home70";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -1024,27 +1024,78 @@ window.generateWeeklyReport=async function(){
 function renderWeeklyAuto(){const n=new Date();if(n.getDay()===0){document.getElementById('weeklyReportTitle').textContent='Hoy toca revisión semanal';window.generateWeeklyReport()}}
 
 
+function smartHomeContext(){
+ const now=new Date(),today=iso(),plan=adaptivePlan(now),ready=readiness(),rec=calcRecovery(now);
+ const legs=Math.round((rec.cuadriceps+rec.isquios+rec.gemelos+rec.gluteo)/4),fat=fatigueFor(now);
+ const sleep=cloudSleep?.find(x=>Math.abs((new Date(x.sleep_date+'T12:00:00')-new Date(today+'T12:00:00'))/86400000)<=1)||null;
+ const checked=cloudCheckins.some(x=>x.checkin_date===today),isMatch=footballScheduled(now),time=S.matchTimes?.[today]||null;
+ const match=time?new Date(today+'T'+time+':00'):null,hours=match?(match-now)/3600000:null;
+ const lower=['isquios','cuadriceps','gemelo','tobillo','pie','rodilla','aductor','ingle','gluteo'];
+ const injury=cloudInjuries.find(i=>i.status==='active'&&lower.includes(String(i.body_area).toLowerCase())&&Number(i.pain_score||0)>=3)||null;
+ return {now,today,plan,ready,rec,legs,fat,sleep,checked,isMatch,time,match,hours,injury,meal:mealForHour(now.getHours())};
+}
+function renderSmartHome(){
+ const c=smartHomeContext(),legsEl=document.getElementById('homeLegs'),legsText=document.getElementById('homeLegsText');
+ if(legsEl)legsEl.textContent=c.legs+'%';
+ if(legsText)legsText.textContent=c.legs>=75?'bien recuperadas':c.legs>=50?'recuperación intermedia':'recuperación baja';
+ const stamp=document.getElementById('homeContextStamp');if(stamp)stamp.textContent='actualizado '+String(c.now.getHours()).padStart(2,'0')+':'+String(c.now.getMinutes()).padStart(2,'0');
+ const checkBtn=document.getElementById('homeCheckinBtn');if(checkBtn){checkBtn.hidden=c.checked;checkBtn.textContent='Check-in rápido';}
+
+ let decision={tag:'Plan del día',title:c.plan.title,text:c.plan.reason};
+ if(c.isMatch){
+   if(c.hours===null)decision={tag:'PARTIDO HOY',title:'Pachanga · falta la hora',text:'El fútbol manda sobre el resto del plan. Añade la hora en Fútbol para ajustar comida y calentamiento.'};
+   else if(c.hours>6)decision={tag:'PARTIDO HOY',title:'Pachanga · prepara el día',text:'Reserva las piernas. Prioriza carbohidratos e hidratación repartida y evita una sesión dura de tren inferior.'};
+   else if(c.hours>2)decision={tag:`PARTIDO EN ${Math.floor(c.hours)} H`,title:'Pachanga · combustible y calma',text:'No añadas carga dura. Come fácil, hidrátate y guarda las piernas para el partido.'};
+   else if(c.hours>.5)decision={tag:'PARTIDO CERCA',title:'Pachanga · últimos preparativos',text:'Nada pesado ahora. Organiza material, pequeños sorbos y empieza el calentamiento cuando falten unos 15 minutos.'};
+   else if(c.hours>0)decision={tag:'CALENTAMIENTO',title:'Pachanga · calienta ahora',text:'Haz el protocolo progresivo de 12–15 min. No conviertas el calentamiento en un test máximo.'};
+   else decision={tag:'POSTPARTIDO',title:'Recuperar',text:'Camina unos minutos, rehidrata y mete carbohidratos + proteína. La siguiente carga depende de cómo queden las piernas.'};
+ }
+ if(c.injury&&Number(c.injury.pain_score||0)>=5)decision={tag:'MODIFICAR CARGA',title:c.isMatch?'Pachanga con precaución':'Evita cargar la zona',text:`Tienes ${escapeHtml(c.injury.body_area)} con dolor ${Number(c.injury.pain_score)}/10. Si aumenta, altera la carrera o limita el apoyo, no fuerces.`};
+ if(c.ready.score<45&&!c.isMatch)decision={tag:'RECUPERACIÓN',title:'Descanso / paseo suave',text:'El contexto de hoy no favorece meter intensidad. Prioriza sueño, comida y movimiento suave.'};
+ document.getElementById('todayPlan').textContent=decision.title;
+ document.getElementById('todayReason').textContent=decision.text;
+ const tag=document.getElementById('homeDecisionTag');if(tag)tag.textContent=decision.tag;
+ const ctx=document.getElementById('homeDecisionContext');if(ctx){
+   const sleepTxt=c.sleep?`${(Number(c.sleep.total_sleep_min||0)/60).toFixed(1)} h sueño`:'sueño pendiente';
+   ctx.innerHTML=`<span>Estado ${c.ready.score}/100</span><span>Piernas ${c.legs}%</span><span>${sleepTxt}</span><span>Fatiga ${c.fat}/5</span>`;
+ }
+}
 function renderCoachTasks(){
  const el=document.getElementById('coachTasks');if(!el)return;
- const tasks=[],today=iso(),now=new Date(),meal=mealForHour(now.getHours());
- const checked=cloudCheckins.some(x=>x.checkin_date===today);
- if(!checked)tasks.push({icon:'🧭',title:'Haz el test diario',text:'30 segundos para que readiness y correlaciones tengan contexto.',action:`navTo('checkin')`,label:'Responder'});
- const sleepRecent=cloudSleep.some(x=>Math.abs((new Date(x.sleep_date+'T12:00:00')-new Date(today+'T12:00:00'))/86400000)<=1);
- if(!sleepRecent)tasks.push({icon:'🌙',title:'Falta el sueño reciente',text:'Sin sueño/HRV el readiness es menos fiable. Abre Sueño y sincroniza Health Connect si la sincronización automática no lo recupera.',action:`navTo('sueno')`,label:'Ver sueño'});
- if(now.getDay()===0&&!S.weights.some(w=>w.date===today))tasks.push({icon:'⚖️',title:'Hoy toca pesarse',text:'En condiciones parecidas: al levantarte y antes de comer.',action:`navTo('registro');document.getElementById('weightKg').focus()`,label:'Registrar'});
- const pending=cloudGoals.filter(g=>g.status==='pending').slice(0,2);
- pending.forEach(g=>tasks.push({icon:'🎯',title:'Misión pendiente',text:g.prompt,goal:g}));
- if(footballScheduled(now)){
-   const t=targetsForToday(),carbs=todayMeals().reduce((s,x)=>s+Number(x.carbs_g||0),0);
-   const match=new Date();match.setHours(20,30,0,0);const hours=(match-now)/3600000;
-   if(hours>0&&hours<6&&carbs<t.carbs*.55)tasks.push({icon:'⚽',title:'Gasolina de partido baja',text:`Llevas ~${Math.round(carbs)} g de HC de ${t.carbs} g objetivo.`,action:`navTo('comer')`,label:'Ver comida'});
+ const c=smartHomeContext(),tasks=[];
+ const push=(priority,icon,title,text,action=null,label=null)=>tasks.push({priority,icon,title,text,action,label});
+
+ if(c.injury){
+   const pain=Number(c.injury.pain_score||0);push(pain>=5?100:80,'⚠️',`Molestia: ${c.injury.body_area} ${pain}/10`,pain>=5?'No uses el calentamiento ni los sprints para probar la zona. Reduce o cancela si cambia tu forma de correr.':'Calienta progresivamente y vigila si el dolor aumenta con velocidad o cambios de dirección.',`navTo('recuperacion')`,'Ver recuperación');
  }
- if(!tasks.length)tasks.push({icon:'✓',title:'Todo al día',text:'No hay ninguna tarea prioritaria ahora mismo.'});
- el.innerHTML=tasks.map(t=>{
-   if(t.goal)return `<div class="coach-task"><div class="task-main"><div class="task-icon">${t.icon}</div><div><b>${t.title}</b><div class="muted small">${t.text}</div></div></div><div class="actions"><button class="btn" onclick="answerGoal('${t.goal.id}','yes')">Sí</button><button class="btn alt" onclick="answerGoal('${t.goal.id}','no')">No</button></div></div>`;
-   return `<div class="coach-task"><div class="task-main"><div class="task-icon">${t.icon}</div><div><b>${t.title}</b><div class="muted small">${t.text}</div></div></div>${t.action?`<button class="btn alt" onclick="${t.action}">${t.label}</button>`:''}</div>`;
- }).join('');
+ if(c.isMatch){
+   if(c.hours===null)push(96,'⚽','Hoy hay pachanga','Falta la hora. Añádela para que la Home pueda decirte cuándo comer y cuándo empezar el calentamiento.',`navTo('futbol')`,'Poner hora');
+   else if(c.hours>0&&c.hours<=.5)push(99,'🔥','Calentamiento ahora',`Faltan ${Math.max(1,Math.round(c.hours*60))} min. Haz el calentamiento progresivo de 12–15 min.`,`navTo('futbol')`,'Abrir calentamiento');
+   else if(c.hours>0&&c.hours<=2)push(94,'⚽','Partido muy cerca',`Faltan ${Math.round(c.hours*60)} min. Evita comida pesada y no añadas entrenamiento.`,`navTo('futbol')`,'Modo partido');
+   else if(c.hours>0&&c.hours<=6){
+     const t=targetsForToday(),carbs=todayMeals().reduce((sum,x)=>sum+Number(x.carbs_g||0),0);
+     push(90,'🍌','Combustible para el partido',`Faltan ${c.hours.toFixed(1)} h. Llevas ~${Math.round(carbs)} g de HC; objetivo diario orientativo ${t.carbs} g.`,`navTo('comer')`,'Ver comida');
+   } else if(c.hours!==null&&c.hours<=0)push(95,'🧊','Recuperación postpartido','Camina, rehidrata y come. Cuando llegue Health Connect/FIT, el parte del partido se actualizará solo.',`navTo('futbol')`,'Ver parte');
+ }
+ if(c.sleep){
+   const mins=Number(c.sleep.total_sleep_min||0);
+   if(mins<360)push(88,'🌙','Sueño claramente corto',`Has dormido ${(mins/60).toFixed(1)} h. Protege la recuperación y evita añadir intensidad que no sea necesaria.`,`navTo('sueno')`,'Ver sueño');
+   else if(mins<420)push(74,'🌙','Sueño algo corto',`Has dormido ${(mins/60).toFixed(1)} h. No invalida el día, pero pesa en la decisión de carga.`,`navTo('sueno')`,'Ver sueño');
+ }else push(70,'🌙','Falta el sueño reciente','La sincronización automática no ha dejado una noche reciente. Puedes forzar Health Connect desde Sueño.',`navTo('sueno')`,'Ver sueño');
+ if(c.legs<45)push(86,'🦵','Piernas poco recuperadas',`Recuperación estimada ${c.legs} %. Evita pierna dura y sprints extra fuera de un partido confirmado.`,`navTo('recuperacion')`,'Ver piernas');
+ else if(c.legs<60)push(64,'🦵','Piernas a media carga',`Recuperación estimada ${c.legs} %. Mejor no añadir trabajo intenso innecesario.`,`navTo('recuperacion')`,'Ver recuperación');
+ if(c.ready.score<50)push(82,'🧭','Estado para entrenar bajo',`${c.ready.score}/100. Mira el desglose antes de añadir carga desplazable.`,null,null);
+ if(!c.checked)push(68,'✓','Falta tu check-in','30 segundos de energía, agujetas, estrés y motivación mejoran la interpretación del día.',`navTo('checkin')`,'Responder');
+ const nowHour=c.now.getHours();
+ if(!c.isMatch&&nowHour>=18&&nowHour<21)push(45,'🥪','Ahora toca merienda','Aprovecha para acercarte al objetivo de proteína y carbohidratos sin tener que compensar al final del día.',`navTo('comer')`,'Ver opciones');
+ if(c.now.getDay()===0&&!S.weights.some(w=>w.date===c.today))push(55,'⚖️','Control de peso pendiente','Si todavía estás en condiciones comparables, registra el peso; si no, mejor esperar al próximo control.',`navTo('registro');document.getElementById('weightKg').focus()`,'Registrar');
+
+ const selected=tasks.sort((a,b)=>b.priority-a.priority).slice(0,3);
+ if(!selected.length)selected.push({icon:'✓',title:'Todo en orden',text:'No hay ninguna prioridad especial ahora mismo. Sigue el plan del día.'});
+ el.innerHTML=selected.map((t,i)=>`<div class="coach-task smart-priority"><div class="priority-rank">${i+1}</div><div class="task-main"><div class="task-icon">${t.icon}</div><div><b>${escapeHtml(t.title)}</b><div class="muted small">${escapeHtml(t.text)}</div></div></div>${t.action?`<button class="btn alt" onclick="${t.action}">${t.label}</button>`:''}</div>`).join('');
+ renderSmartHome();
 }
+
 window.answerGoal=async function(id,status){
  if(!currentUser)return;
  const goal=cloudGoals.find(g=>g.id===id);if(!goal||goal.status!=='pending')return;
@@ -1165,7 +1216,7 @@ function renderAll(){renderToday();renderWeek();renderHistory();updateProgress()
 document.getElementById('actDate').value=iso();document.getElementById('weightDate').value=iso();
 document.getElementById('injuryDate').value=iso();
 document.getElementById('allRecipes').innerHTML=recipes.map(recipeCard).join('');
-renderAll();setInterval(renderToday,30000);
+renderAll();setInterval(()=>{renderToday();renderSmartHome();renderCoachTasks();},30000);
 
 window.TrainingLab.update({appReady:true});
 void initAuth();

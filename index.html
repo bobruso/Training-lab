@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.9 · build trends69">
-<script src="./runtime.js?v=20260909trends69" defer></script>
+<meta name="build" content="v7.0 · build home70">
+<script src="./runtime.js?v=20260909home70" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909trends69">
+<link rel="stylesheet" href="./styles.css?v=20260909home70">
 </head>
 <body>
 <div class="app">
@@ -50,20 +50,23 @@
   <div class="section grid g3">
    <div class="card metric readiness-card"><div class="k">Estado para entrenar</div><div class="v" id="readinessScore">—</div><div class="readiness-label" id="readinessLabel">Calculando...</div><div class="muted" id="readinessWhy">Combina sueño, recuperación, carga reciente y cómo te encuentras.</div><details class="readiness-help"><summary>¿Qué significa?</summary><p class="small muted">Es una estimación orientativa de lo preparado que estás hoy para entrenar. No es una medición médica. Cuanto más alto, más favorable es el contexto para meter carga; cuanto más bajo, más conviene ajustar o recuperar.</p><div id="readinessBreakdown"></div></details></div>
    <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
-   <div class="card metric"><div class="k">Nivel RPG</div><div class="v" id="todayLevel">1</div><div class="muted" id="todayXp">0 XP</div></div>
+   <div class="card metric"><div class="k">Piernas</div><div class="v" id="homeLegs">—</div><div class="muted" id="homeLegsText">recuperación estimada</div></div>
   </div>
-  <div class="section card module-hero">
-   <div class="sectionhead"><div><div class="eyebrow">Coach diario</div><h2 style="margin:3px 0 0">Lo que necesita tu atención</h2></div><span class="muted">priorizado automáticamente</span></div>
-   <div id="coachTasks"></div>
+  <div class="section card module-hero smart-home-card">
+   <div class="sectionhead"><div><div class="eyebrow">Resumen inteligente</div><h2 style="margin:3px 0 0">Tus 3 prioridades de hoy</h2></div><span class="muted" id="homeContextStamp">se actualiza automáticamente</span></div>
+   <div id="coachTasks" class="smart-priorities"></div>
   </div>
   <div class="section grid g2">
-   <div class="card">
-    <div class="eyebrow">Te toca</div>
+   <div class="card smart-decision-card">
+    <div class="eyebrow">Lo que haría hoy</div>
+    <div class="smart-decision-tag" id="homeDecisionTag">Calculando contexto…</div>
     <div class="bigchoice" id="todayPlan">—</div>
     <p class="muted" id="todayReason"></p>
+    <div class="home-decision-context" id="homeDecisionContext"></div>
     <div class="actions">
       <button class="btn" onclick="markTodayDone()">Hecho</button>
       <button class="btn alt" onclick="openRegister()">Registrar actividad</button>
+      <button class="btn alt" id="homeCheckinBtn" onclick="navTo('checkin')">Check-in rápido</button>
     </div>
    </div>
    <div class="card">
@@ -393,6 +396,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260909trends69"></script>
+<script type="module" src="./app.js?v=20260909home70"></script>
 </body>
 </html>
