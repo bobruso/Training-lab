@@ -120,3 +120,9 @@ Añadidos Entrar, Crear cuenta, Olvidé mi contraseña y Guardar contraseña par
 ## Confirmación de contraseña y errores de acceso
 
 Corregida la pérdida de confirmación al recibir USER_UPDATED: el resultado permanece fuera del formulario que se vuelve a renderizar. Los errores Auth ya no quedan tapados por la alerta genérica HTTP 400; se muestran mensajes para credenciales incorrectas, contraseña repetida, confirmación y límites. Comprobación de cuenta solicitada: correo confirmado y contraseña existente, sin leer hashes ni secretos. El motivo del rechazo concreto en el móvil aún requiere reintento con feedback actualizado. 24 tests de navegador pasan; añadidas aserciones para persistencia del mensaje y ausencia de alerta genérica.
+
+## Reinicio de cuentas autorizado — 2026-09-09
+
+Por confirmación explícita del usuario, eliminadas las dos cuentas existentes SOLO en Training Lab (`nnpvklaxhomarxszlclt`). Operación transaccional acotada a los dos UUID y emails previamente comprobados; las claves foráneas ON DELETE CASCADE eliminaron datos asociados y sesiones. Verificación posterior: 0 cuentas, 0 actividades, 0 registros fit_files. No se modificó esquema ni RLS, ni Patxanguilles. No es una migración que deba repetirse en despliegues.
+
+Limitación: permanece el binario FIT huérfano en Storage privado. La eliminación de metadatos SQL no elimina el objeto físico; se requiere borrado mediante Storage API/dashboard. No se borraron metadatos de Storage para fingir la eliminación física. Las nuevas cuentas tendrán UUID distinto y no podrán acceder al objeto por las políticas de ownership. Las sesiones/caches locales de los dispositivos deben cerrarse antes de registrar de nuevo. El reinicio de cuentas no restablece cuotas de envío de correo.
