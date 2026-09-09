@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.8 · build report68">
-<script src="./runtime.js?v=20260909report68" defer></script>
+<meta name="build" content="v6.9 · build trends69">
+<script src="./runtime.js?v=20260909trends69" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909report68">
+<link rel="stylesheet" href="./styles.css?v=20260909trends69">
 </head>
 <body>
 <div class="app">
@@ -236,6 +236,20 @@
    </div>
    <div class="match-report-recovery" id="matchReportRecovery"></div>
   </div>
+  <div class="card section football-trends-card">
+   <div class="sectionhead"><div><div class="eyebrow">Evolución</div><h2>Tu rendimiento en las últimas pachangas</h2></div><span class="muted" id="footballTrendSample">sin historial suficiente</span></div>
+   <div class="football-trend-tabs" id="footballTrendTabs">
+    <button class="on" data-football-metric="high">Alta intensidad</button>
+    <button data-football-metric="hr">FC media</button>
+    <button data-football-metric="sprints">Sprints &gt;18</button>
+    <button data-football-metric="mpm">m/min</button>
+    <button data-football-metric="distance">Distancia</button>
+    <button data-football-metric="finish">Final fuerte</button>
+   </div>
+   <div class="football-chart-wrap"><svg id="footballTrendChart" viewBox="0 0 760 300" role="img" aria-label="Evolución de rendimiento en fútbol"></svg></div>
+   <div class="grid g3" id="footballTrendStats" style="margin-top:12px"></div>
+   <div id="footballTrendInsights" class="match-report-insights" style="margin-top:12px"></div>
+  </div>
   <div class="card section"><div class="eyebrow">Último partido · datos brutos</div><h2 id="footballLastTitle">Aún no hay partido registrado</h2><div id="footballLastSummary" class="muted">Cuando Health Connect o un FIT registre una pachanga, aparecerá aquí un resumen rápido de carga.</div></div>
  </section>
 
@@ -379,6 +393,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260909report68"></script>
+<script type="module" src="./app.js?v=20260909trends69"></script>
 </body>
 </html>

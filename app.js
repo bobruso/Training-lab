@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909report68';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909report68';
-import { createClient } from "./vendor/supabase.js?v=20260909report68";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909trends69';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909trends69';
+import { createClient } from "./vendor/supabase.js?v=20260909trends69";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -325,6 +325,7 @@ window.registerFit=async function registerFit(){
 window.navTo=function navTo(p){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===p));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('on',x.dataset.page===p));window.scrollTo({top:0,behavior:'smooth'})}
 window.openRegister=function openRegister(){window.navTo('registro')}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>window.navTo(b.dataset.page)));
+document.querySelectorAll('[data-football-metric]').forEach(b=>b.addEventListener('click',()=>window.setFootballTrendMetric(b.dataset.footballMetric)));
 
 async function ensureProfile(){
  if(!currentUser)return;
@@ -852,6 +853,86 @@ function renderMatchReport(){
  recovery.innerHTML=`<div class="${hard?'warning':'notice'}"><b>Próximas 24 h</b><br>${hard?'Prioriza recuperación: caminar/movilidad suave, hidratarte, carbohidratos y proteína. Evita pierna dura mientras siga cargada.':'Recuperación normal: movimiento suave, comida completa y reevalúa piernas mañana antes de añadir carga.'}</div>`;
 }
 
+
+let footballTrendMetric='high';
+function footballTrendRows(){
+ return [...S.activities]
+  .filter(a=>a.type==='football'&&!a.planned)
+  .sort((a,b)=>(a.started_at||a.date).localeCompare(b.started_at||b.date))
+  .slice(-10)
+  .map(a=>{
+    const sm=cloudAnalyses.find(x=>x.activity_id===a.id)?.summary||{};
+    const n=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;
+    const distance=n(a.distance)??n(sm.distanceKm),moving=n(a.moving)??n(sm.movingTimeMin);
+    const first=n(sm.first10MinM),last=n(sm.last10MinM);
+    return {
+      date:a.date,
+      high:n(a.highIntensity)??n(sm.highIntensityM),
+      hr:n(a.hr)??n(sm.avgHr),
+      sprints:n(a.absSprints)??n(sm.absoluteSprintCount),
+      mpm:distance&&moving?distance*1000/moving:null,
+      distance,
+      finish:first&&last?(last-first)/first*100:null
+    };
+  });
+}
+function drawFootballTrend(){
+ const svg=document.getElementById('footballTrendChart');if(!svg)return;
+ const rows=footballTrendRows(),cfg={
+   high:['Alta intensidad','m',v=>Math.round(v)],
+   hr:['FC media','ppm',v=>Math.round(v)],
+   sprints:['Sprints >18 km/h','',v=>Math.round(v)],
+   mpm:['Ritmo de trabajo','m/min',v=>Math.round(v)],
+   distance:['Distancia','km',v=>v.toFixed(2)],
+   finish:['Final vs inicio','%',v=>(v>=0?'+':'')+v.toFixed(0)]
+ }[footballTrendMetric];
+ document.querySelectorAll('[data-football-metric]').forEach(b=>b.classList.toggle('on',b.dataset.footballMetric===footballTrendMetric));
+ const valid=rows.map((r,i)=>({...r,i,value:r[footballTrendMetric]})).filter(r=>r.value!==null);
+ document.getElementById('footballTrendSample').textContent=valid.length?`${valid.length} partido${valid.length===1?'':'s'} con esta métrica`:'sin datos para esta métrica';
+ if(!valid.length){svg.innerHTML='<text x="380" y="150" text-anchor="middle" class="chart-empty">Aún no hay datos suficientes</text>';renderFootballTrendStats(rows,valid,cfg);return;}
+ const W=760,H=300,pad={l:52,r:24,t:24,b:48};
+ let min=Math.min(...valid.map(x=>x.value)),max=Math.max(...valid.map(x=>x.value));
+ if(min===max){min-=1;max+=1;} const spread=max-min;min-=spread*.12;max+=spread*.12;
+ if(footballTrendMetric==='finish'){min=Math.min(min,0);max=Math.max(max,0);}
+ const x=i=>pad.l+(i/Math.max(1,valid.length-1))*(W-pad.l-pad.r),y=v=>pad.t+(max-v)/(max-min)*(H-pad.t-pad.b);
+ const ticks=[0,.25,.5,.75,1].map(t=>{const v=max-(max-min)*t,yy=pad.t+(H-pad.t-pad.b)*t;return `<line x1="${pad.l}" y1="${yy}" x2="${W-pad.r}" y2="${yy}" class="chart-grid"/><text x="${pad.l-8}" y="${yy+4}" text-anchor="end" class="chart-axis">${cfg[2](v)}</text>`}).join('');
+ const zero=footballTrendMetric==='finish'&&min<0&&max>0?`<line x1="${pad.l}" y1="${y(0)}" x2="${W-pad.r}" y2="${y(0)}" class="chart-zero"/>`:'';
+ const path=valid.map((r,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(r.value).toFixed(1)).join(' ');
+ const pts=valid.map((r,i)=>`<g><circle cx="${x(i)}" cy="${y(r.value)}" r="5" class="chart-point"/><text x="${x(i)}" y="${H-24}" text-anchor="middle" class="chart-date">${r.date.slice(5).replace('-','/')}</text><text x="${x(i)}" y="${y(r.value)-11}" text-anchor="middle" class="chart-value">${cfg[2](r.value)}</text></g>`).join('');
+ svg.innerHTML=ticks+zero+`<path d="${path}" class="chart-line"/>`+pts;
+ renderFootballTrendStats(rows,valid,cfg);
+}
+function renderFootballTrendStats(rows,valid,cfg){
+ const stats=document.getElementById('footballTrendStats'),ins=document.getElementById('footballTrendInsights');if(!stats||!ins)return;
+ if(!valid.length){stats.innerHTML='';ins.innerHTML='<div class="insight muted">Sin datos suficientes para calcular tendencia.</div>';return;}
+ const vals=valid.map(x=>x.value),avg=vals.reduce((a,b)=>a+b,0)/vals.length,last=vals.at(-1),best=footballTrendMetric==='hr'?Math.min(...vals):Math.max(...vals);
+ stats.innerHTML=metricBox('Último',`${cfg[2](last)}${cfg[1]?' '+cfg[1]:''}`)+metricBox('Media',`${cfg[2](avg)}${cfg[1]?' '+cfg[1]:''}`)+metricBox(footballTrendMetric==='hr'?'FC más baja':'Mejor registro',`${cfg[2](best)}${cfg[1]?' '+cfg[1]:''}`);
+ const notes=[];
+ if(valid.length<4)notes.push('Con menos de 4 partidos, esto es histórico descriptivo; todavía no lo tratamos como tendencia.');
+ else {
+   const split=Math.floor(valid.length/2),old=valid.slice(0,split).map(x=>x.value),recent=valid.slice(split).map(x=>x.value),mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+   const a=mean(old),b=mean(recent),delta=b-a,pct=a!==0?delta/Math.abs(a)*100:null;
+   if(footballTrendMetric==='hr'){
+     if(delta<=-3)notes.push(`Tu FC media reciente está ${Math.abs(delta).toFixed(0)} ppm por debajo de la primera mitad del historial.`);
+     else if(delta>=3)notes.push(`Tu FC media reciente está ${delta.toFixed(0)} ppm por encima de la primera mitad; revisa también ritmo, calor y carga del partido.`);
+     else notes.push('La FC media está bastante estable entre la primera y la segunda mitad del historial.');
+   } else if(pct!==null&&pct>=8)notes.push(`${cfg[0]} ha subido aproximadamente ${pct.toFixed(0)}% en la mitad más reciente del historial.`);
+   else if(pct!==null&&pct<=-8)notes.push(`${cfg[0]} ha bajado aproximadamente ${Math.abs(pct).toFixed(0)}% en la mitad más reciente.`);
+   else notes.push(`${cfg[0]} se mantiene bastante estable en tus partidos recientes.`);
+ }
+ const enriched=rows.filter(r=>r.high!==null&&r.hr!==null);
+ if(enriched.length>=5){
+   const half=Math.floor(enriched.length/2),old=enriched.slice(0,half),recent=enriched.slice(half),mean=(a,k)=>a.reduce((s,x)=>s+x[k],0)/a.length;
+   const hiDelta=(mean(recent,'high')-mean(old,'high'))/Math.max(1,mean(old,'high'))*100,hrDelta=mean(recent,'hr')-mean(old,'hr');
+   if(hiDelta>=10&&hrDelta<=3)notes.push(`Señal interesante: alta intensidad +${hiDelta.toFixed(0)}% con solo ${hrDelta>=0?'+':''}${hrDelta.toFixed(0)} ppm de cambio en FC media. Es compatible con mejor eficiencia, aunque no demuestra por sí sola una mejora fisiológica.`);
+ }
+ const finishes=rows.filter(r=>r.finish!==null).map(r=>r.finish);
+ if(finishes.length>=4){const recent=finishes.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,finishes.length);if(recent>=5)notes.push('En tus últimos partidos estás terminando, de media, con más producción en los últimos 10 min que en los primeros.');else if(recent<=-15)notes.push('Se repite una caída clara al final. Conviene vigilar sueño, combustible previo y cuánto aprietas al inicio.');}
+ ins.innerHTML=notes.map(x=>`<div class="insight">${escapeHtml(x)}</div>`).join('');
+}
+function renderFootballTrends(){drawFootballTrend();}
+window.setFootballTrendMetric=function(metric){footballTrendMetric=metric;drawFootballTrend();};
+
 function renderMatchMode(){
  const panel=document.getElementById('matchDayPanel');if(!panel)return;const isMatch=footballScheduled(new Date());panel.style.display=isMatch?'block':'none';if(!isMatch)return;
  const time=S.matchTimes?.[iso()],now=new Date(),match=time?new Date(iso()+'T'+time+':00'):null;
@@ -1077,7 +1158,7 @@ window.equipItem=async function(index){
  cloudGame={...cloudGame,equipped};renderRpg();
 }
 function renderV5(){
- renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
+ renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderFootballTrends();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
 }
 
 function renderAll(){renderToday();renderWeek();renderHistory();updateProgress();renderLatestAnalysis();renderV5()}
