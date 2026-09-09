@@ -37,3 +37,13 @@ test('Android redirect is preserved and network errors are visible',async({page}
  await page.route('**/auth/v1/otp?**',route=>{expect(new URL(route.request().url()).searchParams.get('redirect_to')).toBe('traininglab://auth');return route.abort();});
  await page.goto('/');await page.locator('#authEmail').fill('qa@example.com');await page.locator('#loginBtn').click();await expect(page.locator('#appError')).toContainText('Login');await expect(page.locator('#loginBtn')).toBeEnabled();
 });
+test('login timeout restores button and diagnostics redact tokens',async({page})=>{
+ await page.clock.install();
+ await page.route('**/auth/v1/otp?**',()=>new Promise(()=>{}));
+ await page.goto('/');await page.waitForFunction(()=>window.TrainingLab.state.appReady);
+ await page.locator('#authEmail').fill('qa@example.com');await page.locator('#loginBtn').click();
+ await page.clock.runFor(21000);
+ await expect(page.locator('#loginBtn')).toBeEnabled();await expect(page.locator('#cloudDetail')).toContainText('tardó demasiado');
+ const safe=await page.evaluate(()=>window.TrainingLab.safe('Bearer hidden-token access_token=hidden-token sb_secret_hidden'));
+ expect(safe).not.toContain('hidden-token');expect(safe).not.toContain('sb_secret_hidden');
+});

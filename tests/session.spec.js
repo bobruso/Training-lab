@@ -25,6 +25,11 @@ test('authenticated cold start, writes and logout isolation',async({page})=>{
  await page.evaluate(()=>window.saveSleep());
  await page.evaluate(()=>window.logSuggestedMeal('comida','QA meal'));
  for(const table of ['daily_status','weigh_ins','activities','daily_checkins','sleep_records','meal_logs'])expect(writes.some(x=>x.table===table&&x.body.user_id===id)).toBe(true);
+ const before=await page.evaluate(()=>window.cloudMeals.length);
+ await page.route('**/rest/v1/meal_logs*',route=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'Invalid meal'})}));
+ expect(await page.evaluate(()=>window.logSuggestedMeal('comida','rejected').then(()=>false,()=>true))).toBe(true);
+ expect(await page.evaluate(()=>window.cloudMeals.length)).toBe(before);
+ await expect(page.locator('#appError')).toBeVisible();
  await page.locator('#logoutBtn').click();await expect(page.locator('#loginBtn')).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>window.TrainingLab.state.authenticated)).toBe(false);
  expect(errors).toEqual([]);
