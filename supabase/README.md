@@ -10,13 +10,14 @@ Este backend ya está desplegado. No hace falta volver a crearlo al publicar Git
 
 ### `analyze-fit`
 - JWT obligatorio.
-- Versión desplegada: v2.
+- Versión desplegada: v3.
 - Fútbol / running: GPS, distancia, FC, zonas, velocidad, alta intensidad, sprints, aceleraciones, track y resumen.
 - Fuerza: intenta leer mensajes FIT de series (`set` / `exercise_set`) y guarda repeticiones, peso y categoría cuando el dispositivo realmente los incluye.
 - Nunca inventa series ausentes.
 
 ### `health-connect-ingest`
 - JWT obligatorio.
+- Versión desplegada: v2. Los fallos parciales devuelven error y no anuncian una sincronización completa.
 - Recibe datos normalizados desde el companion Android.
 - Importa sueño y sesiones de ejercicio de Health Connect.
 - Actualiza el estado de sincronización.
@@ -32,6 +33,7 @@ El informe usa:
 - carga (min × RPE),
 - distancia,
 - sueño,
+- HRV, regularidad personal y molestias activas,
 - check-ins,
 - días con proteína suficiente,
 - peso.
@@ -46,13 +48,17 @@ También crea misiones de confirmación para cosas que la app no puede verificar
 - La función automática semanal vive en un esquema privado y no puede ser ejecutada por `anon` ni `authenticated`.
 - En frontend solo se utiliza la publishable key. Nunca se debe poner una `service_role` en GitHub.
 
-## Auth URLs que faltan configurar
+## Auth URLs que hay que verificar
 
-Cuando exista la URL definitiva de GitHub Pages, añadir en Supabase:
+El código usa estas URLs; falta confirmar la allowlist del servicio en Supabase:
 
 Authentication → URL Configuration → Redirect URLs
 
-- `https://TU_USUARIO.github.io/training-lab/**`
+- `https://bobruso.github.io/Training-lab/`
 - `traininglab://auth`
 
 La segunda URL permite que un magic link abierto desde el companion Android vuelva a la app y no deje la sesión solamente en Chrome.
+
+## Reproducibilidad
+
+`migrations/` contiene las doce migraciones originales recuperadas del servicio y tres nuevas migraciones verificadas. Las versiones coinciden con el historial desplegado. El informe semanal no duplica noches procedentes de varias fuentes ni informes por usuario/semana. Las pruebas transaccionales y sus límites están descritos en `../CODEX_REPORT.md` y `../TESTING.md`.

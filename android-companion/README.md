@@ -15,15 +15,7 @@ El servidor receptor ya está desplegado como Edge Function `health-connect-inge
 
 ## Antes de compilar
 
-Edita:
-
-`app/src/main/res/values/strings.xml`
-
-y cambia:
-
-`https://TU_USUARIO.github.io/training-lab/`
-
-por la URL definitiva de GitHub Pages.
+La URL ya está configurada como `https://bobruso.github.io/Training-lab/`. Sigue [BUILD.md](BUILD.md) para compilar con Java 17, SDK 36, AGP 8.10.1 y Gradle Wrapper 8.11.1. Compilación debug y lint verificadas en GitHub Actions; falta prueba funcional en teléfono.
 
 ## Privacidad
 

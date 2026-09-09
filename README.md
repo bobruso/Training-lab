@@ -1,4 +1,6 @@
-# Training Lab v6
+# Training Lab v6.2
+
+Estado y evidencias de la sesión: [CODEX_REPORT.md](CODEX_REPORT.md). Pruebas y release: [TESTING.md](TESTING.md). Validaciones pendientes: [CODEX_BLOCKERS.md](CODEX_BLOCKERS.md).
 
 Training Lab es una app personal adaptativa para combinar:
 
@@ -169,7 +171,7 @@ Antes de probar el login desde Android, configura en Supabase Auth:
 
 Después abre `android-companion` en Android Studio y compila.
 
-El código fuente está preparado, pero el APK no se ha compilado en este entorno porque aquí no hay Android SDK/Gradle completo.
+El APK debug y Android lint han pasado en GitHub Actions con Java 17, AGP 8.10.1, SDK 36 y Gradle 8.11.1. Instrucciones exactas: [android-companion/BUILD.md](android-companion/BUILD.md). Falta probar login y Health Connect en teléfono.
 
 ## Supabase
 
