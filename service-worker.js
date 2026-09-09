@@ -1,5 +1,5 @@
-const CACHE='training-lab-20260909home66';
-const ASSETS=['./','./index.html','./app.js?v=20260909home66','./runtime.js?v=20260909home66','./styles.css?v=20260909home66','./domain.js?v=20260909home66','./vendor/supabase.js?v=20260909home66','./vendor/fit-local.js?v=20260909home66','./manifest.webmanifest','./privacy.html'];
+const CACHE='training-lab-20260909football67';
+const ASSETS=['./','./index.html','./app.js?v=20260909football67','./runtime.js?v=20260909football67','./styles.css?v=20260909football67','./domain.js?v=20260909football67','./vendor/supabase.js?v=20260909football67','./vendor/fit-local.js?v=20260909football67','./manifest.webmanifest','./privacy.html'];
 // Runtime refresh: account controls moved from Home into Ajustes / Perfil.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);

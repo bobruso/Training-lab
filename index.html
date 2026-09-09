@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.6 · build home66">
-<script src="./runtime.js?v=20260909home66" defer></script>
+<meta name="build" content="v6.7 · build football67">
+<script src="./runtime.js?v=20260909football67" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909home66">
+<link rel="stylesheet" href="./styles.css?v=20260909football67">
 </head>
 <body>
 <div class="app">
@@ -30,7 +30,7 @@
   </div>
 </div>
  <nav>
-  <button class="on" data-page="hoy">Hoy</button><button data-page="semana">Semana</button><button data-page="comer">Comer</button><button data-page="registro">Registrar</button><button data-page="entrenos">Entrenamientos</button><button data-page="gym">Gym</button><button data-page="sueno">Sueño</button><button data-page="checkin">Check-in</button><button data-page="recuperacion">Recuperación</button><button data-page="comparar">Comparar</button><button data-page="progreso">Progreso</button><button data-page="rpg">RPG</button>
+  <button class="on" data-page="hoy">Hoy</button><button data-page="semana">Semana</button><button data-page="comer">Comer</button><button data-page="registro">Registrar</button><button data-page="entrenos">Entrenamientos</button><button data-page="futbol">Fútbol</button><button data-page="gym">Gym</button><button data-page="sueno">Sueño</button><button data-page="checkin">Check-in</button><button data-page="recuperacion">Recuperación</button><button data-page="comparar">Comparar</button><button data-page="progreso">Progreso</button><button data-page="rpg">RPG</button>
  </nav>
 
  <section class="page on" id="hoy">
@@ -189,16 +189,55 @@
    </div>
  </section>
 
- <section class="page" id="gym">
-  <div class="sectionhead"><h2>Gym / casa</h2><span class="muted">hipertrofia compatible con fútbol</span></div>
-  <div class="grid g2">
-   <div class="card"><div class="eyebrow">Torso · día con fútbol</div><div class="exercise"><b>Press banca / máquina</b> · 3×6–10</div><div class="exercise"><b>Remo sentado</b> · 3×8–12</div><div class="exercise"><b>Jalón al pecho</b> · 3×8–12</div><div class="exercise"><b>Elevaciones laterales</b> · 3×12–20</div><div class="exercise"><b>Bíceps + tríceps</b> · 2–3×10–15</div></div>
-   <div class="card"><div class="eyebrow">Pierna · principal</div><div class="exercise"><b>Prensa / sentadilla</b> · 3×6–10</div><div class="exercise"><b>Peso muerto rumano</b> · 3×8–10</div><div class="exercise"><b>Split squat</b> · 2–3×8–12</div><div class="exercise"><b>Curl femoral</b> · 2–3×10–15</div><div class="exercise"><b>Gemelos</b> · 3×10–15</div></div>
-   <div class="card"><div class="eyebrow">Casa · mancuernas</div><div class="exercise">Goblet squat · 3×10–15</div><div class="exercise">RDL mancuerna · 3×10–15</div><div class="exercise">Press suelo · 3×8–15</div><div class="exercise">Remo unilateral · 3×10–15</div><div class="exercise">Dominadas · 3 series con 1–2 reps en recámara</div></div>
-   <div class="card"><div class="eyebrow">Core · 10 min</div><div class="exercise">Plancha · 3×30–60 s</div><div class="exercise">Dead bug · 3×8–12/lado</div><div class="exercise">Plancha lateral · 2×30–45 s/lado</div><div class="exercise">Elevación de piernas · 2–3×8–15</div></div>
+ <section class="page" id="futbol">
+  <div class="sectionhead"><div><h2>Fútbol</h2><span class="muted">preparación, calentamiento y recuperación para tus pachangas</span></div><button class="btn alt" onclick="setFootball(true)">Jugaré hoy</button></div>
+
+  <div class="card module-hero football-hero">
+   <div class="eyebrow">Modo partido</div>
+   <div class="grid g2">
+    <div><h1 id="footballHubTitle" class="football-title">¿Hay pachanga hoy?</h1><p class="muted" id="footballHubSubtitle">Confirma el partido para adaptar comida, calentamiento y recuperación.</p><div class="match-countdown" id="footballHubCountdown">—</div><p class="muted" id="footballHubCountdownLabel">hora por confirmar</p></div>
+    <div><div class="field"><label>Hora del partido</label><input id="footballHubTime" type="time"></div><div class="actions" style="margin-top:10px"><button class="btn" onclick="saveFootballHubTime()">Guardar hora</button><button class="btn alt" onclick="setFootball(false)">Hoy no juego</button></div><div id="footballHubStatus" class="small muted" style="margin-top:10px"></div></div>
+   </div>
   </div>
+
+  <div class="section grid g3" id="footballQuickStatus">
+   <div class="card metric"><div class="k">Estado para entrenar</div><div class="v" id="footballReadiness">—</div><div class="muted" id="footballReadinessText">—</div></div>
+   <div class="card metric"><div class="k">Piernas estimadas</div><div class="v" id="footballLegs">—</div><div class="muted">recuperación estimada</div></div>
+   <div class="card metric"><div class="k">Fatiga percibida</div><div class="v" id="footballFatigue">—</div><div class="muted">escala 1–5</div></div>
+  </div>
+
+  <div class="section card football-now-card">
+   <div class="eyebrow">Qué toca ahora</div><h2 id="footballNowTitle">Preparación general</h2><div id="footballNowAdvice" class="football-advice"></div>
+  </div>
+
+  <div class="sectionhead section"><h2>Calentamiento · 12–15 min</h2><span class="muted">progresivo, sin fatigar antes de empezar</span></div>
+  <div class="football-timeline">
+   <div class="card warm-step"><span class="warm-time">0–3'</span><h3>Subir temperatura</h3><p class="muted">Trote suave, desplazamientos laterales y hacia atrás. Acaba notando calor, no cansancio.</p></div>
+   <div class="card warm-step"><span class="warm-time">3–6'</span><h3>Movilidad dinámica</h3><p class="muted">Tobillos, balanceos de cadera, zancadas caminando y apertura/cierre de cadera. Nada de estiramientos largos mantenidos.</p></div>
+   <div class="card warm-step"><span class="warm-time">6–9'</span><h3>Activación</h3><p class="muted">2×8 sentadillas controladas, 2×6 zancadas por lado y 2×10 elevaciones de gemelo. Si llevas minibanda: pasos laterales suaves.</p></div>
+   <div class="card warm-step"><span class="warm-time">9–12'</span><h3>Acelerar</h3><p class="muted">3–4 progresiones de 15–20 m: aproximadamente 60 %, 70 %, 80 % y solo si estás cómodo 85–90 %. Recupera caminando.</p></div>
+   <div class="card warm-step"><span class="warm-time">12–15'</span><h3>Balón + cambios de dirección</h3><p class="muted">Pases, controles, dos o tres cambios de dirección progresivos y un par de acciones específicas de tu posición. Evita un sprint máximo “para probar”.</p></div>
+  </div>
+  <div id="footballWarmupAlert" class="section"></div>
+
+  <div class="section grid g3">
+   <div class="card"><div class="eyebrow">Antes del partido</div><h3>Comida e hidratación</h3><div id="footballFuelAdvice" class="football-advice"></div></div>
+   <div class="card"><div class="eyebrow">Durante</div><h3>Gestiona el esfuerzo</h3><div class="football-advice"><p><b>Primeros 5 min:</b> entra progresivamente; no hace falta que tu primera acción sea un sprint máximo.</p><p>Si hay pausa, aprovecha para beber. Tras estar varios minutos parado, vuelve a moverte antes de acelerar fuerte.</p></div></div>
+   <div class="card"><div class="eyebrow">Después</div><h3>Recuperación inmediata</h3><div id="footballPostAdvice" class="football-advice"></div></div>
+  </div>
+
+  <div class="card section"><div class="eyebrow">Último partido</div><h2 id="footballLastTitle">Aún no hay partido registrado</h2><div id="footballLastSummary" class="muted">Cuando Health Connect o un FIT registre una pachanga, aparecerá aquí un resumen rápido de carga.</div></div>
  </section>
 
+ <section class="page" id="gym">
+  <div class="sectionhead"><h2>Fuerza en casa</h2><span class="muted">simple, útil y compatible con fútbol</span></div>
+  <div class="grid g3">
+   <div class="card"><div class="eyebrow">Cuerpo completo · 30–40 min</div><div class="exercise"><b>Goblet squat</b> · 3×8–15</div><div class="exercise"><b>Peso muerto rumano con mancuernas</b> · 3×8–15</div><div class="exercise"><b>Flexiones o press suelo</b> · 3×8–15</div><div class="exercise"><b>Remo unilateral</b> · 3×10–15/lado</div><div class="exercise"><b>Gemelos</b> · 3×12–20</div><p class="small muted">Deja normalmente 1–3 repeticiones en recámara. No hace falta llegar al fallo.</p></div>
+   <div class="card"><div class="eyebrow">Torso · 20–30 min</div><div class="exercise"><b>Flexiones / press suelo</b> · 3×8–15</div><div class="exercise"><b>Remo con mancuerna</b> · 3×10–15</div><div class="exercise"><b>Press hombro con mancuernas</b> · 2–3×8–15</div><div class="exercise"><b>Elevaciones laterales</b> · 2–3×12–20</div><div class="exercise"><b>Curl + tríceps</b> · 2×10–15</div><p class="small muted">Buena opción si hay fútbol el mismo día y quieres evitar cargar las piernas.</p></div>
+   <div class="card"><div class="eyebrow">Core + prevención · 10–15 min</div><div class="exercise"><b>Dead bug</b> · 3×8–12/lado</div><div class="exercise"><b>Plancha lateral</b> · 2×30–45 s/lado</div><div class="exercise"><b>Puente de glúteo</b> · 3×10–15</div><div class="exercise"><b>Elevación de gemelo unilateral</b> · 2×12–20/lado</div><div class="exercise"><b>Equilibrio a una pierna</b> · 2×30–45 s/lado</div></div>
+  </div>
+  <div class="notice section">Si hay partido en menos de 24 h, prioriza torso/core o una sesión muy ligera. Evita una sesión dura de pierna justo antes de jugar.</div>
+ </section>
 
  <section class="page" id="sueno">
   <div class="sectionhead">
@@ -326,10 +365,10 @@
 </div>
 
 <div class="bottom">
- <button class="on" data-page="hoy">HOY</button><button data-page="semana">SEMANA</button><button data-page="comer">COMER</button><button data-page="recuperacion">RECUP.</button><button data-page="progreso">PROGRESO</button>
+ <button class="on" data-page="hoy">HOY</button><button data-page="semana">SEMANA</button><button data-page="comer">COMER</button><button data-page="futbol">FÚTBOL</button><button data-page="recuperacion">RECUP.</button>
 </div>
 
 
-<script type="module" src="./app.js?v=20260909home66"></script>
+<script type="module" src="./app.js?v=20260909football67"></script>
 </body>
 </html>

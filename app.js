@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909home66';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909home66';
-import { createClient } from "./vendor/supabase.js?v=20260909home66";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909football67';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909football67';
+import { createClient } from "./vendor/supabase.js?v=20260909football67";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -722,6 +722,50 @@ window.logSuggestedMeal=async function(type,title){
  const defaults={desayuno:[30,70,15],comida:[40,95,18],merienda:[25,65,10],cena:[38,80,20],recena:[20,35,8]},v=defaults[type]||[25,60,15];
  await supabase.from('meal_logs').insert({user_id:currentUser.id,meal_type:type,title,protein_g:v[0],carbs_g:v[1],fat_g:v[2]});window.cloudMeals=(window.cloudMeals||[]);window.cloudMeals.push({eaten_at:new Date().toISOString(),meal_type:type,protein_g:v[0],carbs_g:v[1],fat_g:v[2]});renderMealPlanner();
 }
+
+function renderFootballHub(){
+ const title=document.getElementById('footballHubTitle');if(!title)return;
+ const now=new Date(),isMatch=footballScheduled(now),time=S.matchTimes?.[iso()],input=document.getElementById('footballHubTime');
+ if(input&&document.activeElement!==input)input.value=time||'';
+ const match=time?new Date(iso()+'T'+time+':00'):null,ms=match?match-now:null,hours=ms==null?null:ms/36e5;
+ const countdown=document.getElementById('footballHubCountdown'),label=document.getElementById('footballHubCountdownLabel');
+ const fat=fatigueFor(now),ready=readiness(),rec=calcRecovery(now),legs=Math.round((rec.cuadriceps+rec.isquios+rec.gemelos+rec.gluteo)/4);
+ document.getElementById('footballReadiness').textContent=ready.score+'/100';
+ document.getElementById('footballReadinessText').textContent=ready.score>=65?'contexto favorable':ready.score>=50?'conviene moderar':'prioriza recuperación';
+ document.getElementById('footballLegs').textContent=legs+'%';document.getElementById('footballFatigue').textContent=fat+'/5';
+ document.getElementById('footballHubStatus').textContent=isMatch?'Pachanga confirmada para hoy.':'Todavía no has confirmado pachanga hoy.';
+ if(!isMatch){title.textContent='¿Hay pachanga hoy?';document.getElementById('footballHubSubtitle').textContent='Confírmala para adaptar esta pantalla y la planificación del día.';countdown.textContent='—';label.textContent='sin partido confirmado';}
+ else if(!time){title.textContent='Pachanga confirmada';document.getElementById('footballHubSubtitle').textContent='Añade la hora para activar la cuenta atrás y los consejos por momento.';countdown.textContent='—';label.textContent='hora por confirmar';}
+ else if(ms>0){title.textContent='Hoy hay partido';document.getElementById('footballHubSubtitle').textContent='La preparación se adapta a lo que falta para empezar.';const hh=Math.floor(ms/36e5),mm=Math.floor((ms%36e5)/60000);countdown.textContent=`${hh}h ${mm}m`;label.textContent='para empezar';}
+ else {title.textContent='Partido en curso o recién terminado';document.getElementById('footballHubSubtitle').textContent='Al terminar, deja que Health Connect sincronice o sube el FIT.';countdown.textContent='POST';label.textContent='recuperación';}
+
+ const nowTitle=document.getElementById('footballNowTitle'),nowAdvice=document.getElementById('footballNowAdvice'),fuel=document.getElementById('footballFuelAdvice');
+ if(!isMatch){nowTitle.textContent='Día sin partido confirmado';nowAdvice.innerHTML='<p>Si finalmente juegas, pulsa <b>Jugaré hoy</b> y pon la hora. Training Lab recalculará la carga del día.</p>';fuel.innerHTML='<p>Mantén tu alimentación normal según la carga prevista.</p>';}
+ else if(hours==null){nowTitle.textContent='Pon la hora del partido';nowAdvice.innerHTML='<p>Con la hora podremos decirte cuándo hacer la comida principal, merienda y calentamiento.</p>';fuel.innerHTML='<p>Prioriza carbohidratos durante el día y llega bien hidratado.</p>';}
+ else if(hours>4){nowTitle.textContent='Carga combustible con calma';nowAdvice.innerHTML='<p>Quedan más de 4 horas. Haz una comida normal rica en carbohidratos, proteína suficiente y sin pasarte con grasa/fibra si suelen sentarte pesadas.</p>';fuel.innerHTML='<p><b>4–6 h antes:</b> arroz, pasta, patata o pan + proteína. Bebe de forma repartida; no intentes compensar litros justo antes.</p>';}
+ else if(hours>1.5){nowTitle.textContent='Merienda y empieza a prepararte';nowAdvice.innerHTML='<p>Evita comidas grandes. Un aporte fácil de carbohidratos y líquido suele ser suficiente.</p>';fuel.innerHTML='<p><b>90–120 min:</b> bocadillo sencillo, yogur + cereal, plátano, avena ligera o similar. Ajusta cantidades a tu tolerancia.</p>';}
+ else if(hours>.45){nowTitle.textContent='Últimos preparativos';nowAdvice.innerHTML='<p>Ya no interesa comer pesado. Organiza botas, agua y empieza a moverte progresivamente cuando falten unos 15 minutos.</p>';fuel.innerHTML='<p>Si tienes hambre, algo pequeño y fácil: plátano, tostada con miel o bebida con carbohidratos.</p>';}
+ else if(hours>0){nowTitle.textContent='Calentamiento';nowAdvice.innerHTML='<p><b>Haz ahora el protocolo de 12–15 minutos de abajo.</b> La última aceleración debe dejarte preparado, no fatigado.</p>';fuel.innerHTML='<p>Solo pequeños sorbos si lo necesitas.</p>';}
+ else {nowTitle.textContent='Recuperación postpartido';nowAdvice.innerHTML='<p>Camina unos minutos antes de quedarte parado, rehidrata y mete carbohidratos + proteína en las próximas horas.</p>';fuel.innerHTML='<p>Si has sudado mucho, acompaña el líquido con comida salada/electrolitos según tolerancia.</p>';}
+
+ const lower=['isquios','cuadriceps','gemelo','tobillo','pie','rodilla','aductor','ingle','gluteo'];
+ const injury=cloudInjuries.find(i=>i.status==='active'&&lower.includes(String(i.body_area).toLowerCase())&&Number(i.pain_score||0)>=3);
+ const alert=document.getElementById('footballWarmupAlert');
+ if(injury)alert.innerHTML=`<div class="warning"><b>Molestia registrada: ${escapeHtml(injury.body_area)}</b><br>Calienta más progresivo y no uses los sprints para “comprobar” la zona. Si el dolor aumenta, altera la carrera o te hace proteger la pierna, no fuerces el partido.</div>`;
+ else if(fat>=4||ready.score<50||legs<50)alert.innerHTML='<div class="warning"><b>Hoy no llegas especialmente fresco.</b><br>Alarga 3–5 minutos la parte progresiva, reduce la intensidad de las primeras acciones y no conviertas el calentamiento en un test máximo.</div>';
+ else alert.innerHTML='<div class="notice"><b>Contexto razonable para jugar.</b><br>Haz el calentamiento completo aunque te notes bien; las aceleraciones deben ser progresivas.</div>';
+
+ document.getElementById('footballPostAdvice').innerHTML='<p><b>0–10 min:</b> 5–8 min andando suave; evita pasar de máxima intensidad a sentarte sin transición.</p><p><b>30–120 min:</b> líquido + comida con 25–40 g de proteína y carbohidratos abundantes.</p><p><b>Día siguiente:</b> paseo/movilidad suave y decide la carga con sueño, piernas y molestias reales.</p>';
+ const last=S.activities.filter(a=>a.type==='football').sort((a,b)=>b.date.localeCompare(a.date))[0];
+ if(last){document.getElementById('footballLastTitle').textContent=`Partido · ${last.date}`;document.getElementById('footballLastSummary').innerHTML=`${last.duration?`<b>${Math.round(last.duration)} min</b> · `:''}${last.distance?`${Number(last.distance).toFixed(2)} km · `:''}${last.hr?`FC media ${Math.round(last.hr)} · `:''}${last.highIntensity?`${Math.round(last.highIntensity)} m alta intensidad · `:''}${last.absSprints!=null?`${last.absSprints} esfuerzos >18 km/h`:''}`||'Partido registrado. Sube o sincroniza el FIT para ampliar métricas.';}
+}
+window.saveFootballHubTime=async function(){
+ const input=document.getElementById('footballHubTime'),time=input?.value;if(!time){window.TrainingLab.report('Partido','Introduce una hora válida.');return;}
+ (S.matchTimes??={})[iso()]=time;S.footballOverrides[iso()]=true;save();
+ if(currentUser)await supabase.from('daily_status').upsert({user_id:currentUser.id,day:iso(),football_time:time,football_override:true},{onConflict:'user_id,day'});
+ renderAll();
+};
+
 function renderMatchMode(){
  const panel=document.getElementById('matchDayPanel');if(!panel)return;const isMatch=footballScheduled(new Date());panel.style.display=isMatch?'block':'none';if(!isMatch)return;
  const time=S.matchTimes?.[iso()],now=new Date(),match=time?new Date(iso()+'T'+time+':00'):null;
@@ -947,7 +991,7 @@ window.equipItem=async function(index){
  cloudGame={...cloudGame,equipped};renderRpg();
 }
 function renderV5(){
- renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
+ renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
 }
 
 function renderAll(){renderToday();renderWeek();renderHistory();updateProgress();renderLatestAnalysis();renderV5()}
