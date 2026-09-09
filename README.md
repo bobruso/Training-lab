@@ -12,6 +12,10 @@ Training Lab es una app personal adaptativa para combinar:
 - seguimiento FIT,
 - gamificación personal.
 
+URL publicada:
+
+`https://bobruso.github.io/Training-lab/`
+
 El principio de la app es sencillo: **la Home debe decir qué conviene hacer hoy, qué comer y qué necesita atención**, usando lo que realmente ha ocurrido durante la semana.
 
 ## Web
@@ -144,18 +148,20 @@ COROS incluye Health Connect entre sus integraciones compatibles para Android. C
 
 ## Companion Android
 
-Antes de compilar:
+La URL de GitHub Pages ya está configurada en:
 
-1. Publica la web.
-2. Abre:
-   `android-companion/app/src/main/res/values/strings.xml`
-3. Sustituye:
-   `https://TU_USUARIO.github.io/training-lab/`
-   por la URL real.
-4. En Supabase Auth añade:
-   - la URL de GitHub Pages;
-   - `traininglab://auth`.
-5. Abre `android-companion` en Android Studio y compila.
+`android-companion/app/src/main/res/values/strings.xml`
+
+como:
+
+`https://bobruso.github.io/Training-lab/`
+
+Antes de probar el login desde Android, añade en Supabase Auth:
+
+- `https://bobruso.github.io/Training-lab/**`
+- `traininglab://auth`
+
+Después abre `android-companion` en Android Studio y compila.
 
 El código fuente está preparado, pero el APK no se ha compilado en este entorno porque aquí no hay Android SDK/Gradle completo.
 
@@ -177,11 +183,10 @@ La publishable key del frontend sí está diseñada para cliente web cuando RLS 
 
 ## Pruebas recomendadas
 
-1. Publicar GitHub Pages.
-2. Entrar con magic link.
-3. Subir un FIT real de una pachanga.
-4. Subir un FIT real de fuerza.
-5. Registrar 2–3 noches manuales o sincronizarlas con Health Connect.
-6. Completar varios check-ins.
-7. Verificar que `Hoy` cambia al variar fatiga / pachanga / descanso.
-8. Construir el companion y hacer la primera sincronización Health Connect.
+1. Entrar con magic link.
+2. Subir un FIT real de una pachanga.
+3. Subir un FIT real de fuerza.
+4. Registrar 2–3 noches manuales o sincronizarlas con Health Connect.
+5. Completar varios check-ins.
+6. Verificar que `Hoy` cambia al variar fatiga / pachanga / descanso.
+7. Construir el companion y hacer la primera sincronización Health Connect.
