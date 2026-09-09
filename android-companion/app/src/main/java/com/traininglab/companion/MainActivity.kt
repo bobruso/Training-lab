@@ -1,13 +1,16 @@
 package com.traininglab.companion
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebResourceRequest
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.health.connect.client.HealthConnectClient
@@ -32,7 +35,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 class MainActivity : ComponentActivity() {
@@ -41,9 +43,22 @@ class MainActivity : ComponentActivity() {
     private var pendingToken: String? = null
     private var pendingSupabaseUrl: String? = null
     private var syncing = false
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private val backendUrl = "https://nnpvklaxhomarxszlclt.supabase.co"
+
     private fun trusted(uri: Uri): Boolean = uri.scheme == "https" && uri.host == "bobruso.github.io" &&
         (uri.port == -1 || uri.port == 443) && uri.path?.startsWith("/Training-lab/") == true
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = fileChooserCallback ?: return@registerForActivityResult
+        val uris = if (result.resultCode == Activity.RESULT_OK) {
+            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        } else null
+        callback.onReceiveValue(uris)
+        fileChooserCallback = null
+    }
 
     private val permissions = setOf(
         HealthPermission.getReadPermission(SleepSessionRecord::class),
@@ -61,7 +76,11 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val granted = client.permissionController.getGrantedPermissions()
             if (granted.containsAll(permissions)) doSync()
-            else { pendingToken = null; syncing = false; sendError("Faltan permisos de Health Connect.") }
+            else {
+                pendingToken = null
+                syncing = false
+                sendError("Faltan permisos de Health Connect.")
+            }
         }
     }
 
@@ -73,6 +92,7 @@ class MainActivity : ComponentActivity() {
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
             settings.allowContentAccess = false
+
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     if (trusted(request.url)) return false
@@ -82,6 +102,34 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
             }
+
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowFileChooser(
+                    webView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    fileChooserCallback?.onReceiveValue(null)
+                    fileChooserCallback = filePathCallback ?: return false
+
+                    // FIT files often have no reliable MIME type on Android. Force the
+                    // Storage Access Framework / Documents picker instead of Gallery.
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                    }
+                    return try {
+                        fileChooserLauncher.launch(intent)
+                        true
+                    } catch (_: Exception) {
+                        fileChooserCallback?.onReceiveValue(null)
+                        fileChooserCallback = null
+                        false
+                    }
+                }
+            }
+
             addJavascriptInterface(WebBridge(), "TrainingLabAndroid")
         }
         setContentView(webView)
@@ -97,8 +145,6 @@ class MainActivity : ComponentActivity() {
     private fun loadInitialUrl(intent: Intent?) {
         val uri = intent?.data
         if (uri?.scheme == "traininglab" && uri.host == "auth") {
-            // Supabase suele devolver tokens/código en query o fragment. Los reenviamos
-            // a la misma GitHub Page para que supabase-js complete la sesión dentro del WebView.
             val suffix = buildString {
                 if (!uri.encodedQuery.isNullOrBlank()) append("?").append(uri.encodedQuery)
                 if (!uri.encodedFragment.isNullOrBlank()) append("#").append(uri.encodedFragment)
@@ -163,8 +209,6 @@ class MainActivity : ComponentActivity() {
                 )
             ).records
 
-            // Health Connect puede contener sueño principal + siestas el mismo día.
-            // Training Lab conserva como sueño principal la sesión más larga y guarda el resto como siestas.
             val sleepJson = JSONArray()
             val groupedSleep = sleepRecords.groupBy {
                 it.endTime.atZone(ZoneId.systemDefault()).toLocalDate()
@@ -187,16 +231,18 @@ class MainActivity : ComponentActivity() {
 
                 val resting = restingRecords.filter {
                     it.time >= main.startTime.minus(Duration.ofHours(3)) &&
-                    it.time <= main.endTime.plus(Duration.ofHours(3))
+                        it.time <= main.endTime.plus(Duration.ofHours(3))
                 }.map { it.beatsPerMinute }.takeIf { it.isNotEmpty() }?.average()
 
                 val naps = JSONArray()
                 sessionsForDay.filter { it.metadata.id != main.metadata.id }.forEach { nap ->
-                    naps.put(JSONObject()
-                        .put("start", nap.startTime.toString())
-                        .put("end", nap.endTime.toString())
-                        .put("duration_min", Duration.between(nap.startTime, nap.endTime).toMinutes())
-                        .put("source_app", nap.metadata.dataOrigin.packageName))
+                    naps.put(
+                        JSONObject()
+                            .put("start", nap.startTime.toString())
+                            .put("end", nap.endTime.toString())
+                            .put("duration_min", Duration.between(nap.startTime, nap.endTime).toMinutes())
+                            .put("source_app", nap.metadata.dataOrigin.packageName)
+                    )
                 }
 
                 val o = JSONObject()
@@ -274,7 +320,7 @@ class MainActivity : ComponentActivity() {
             val payload = JSONObject().put("sleep", sleepJson).put("activities", activitiesJson)
             val result = withContext(Dispatchers.IO) { postToSupabase(payload.toString()) }
             sendSuccess(result)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             sendError("No se ha completado la sincronización. Comprueba permisos y conexión.")
         } finally {
             pendingToken = null
