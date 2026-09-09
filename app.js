@@ -86,7 +86,7 @@ function adaptivePlan(date=new Date()){
  if(hasDone(addDays(date,-1),'gym'))return c.run<runTarget&&!nextFootballWithin(date,1)&&!recentHard(date)&&legRecovery>=65?{title:'Rodaje fácil',reason:'Alternamos la fuerza de ayer con trabajo aeróbico suave.',kind:'run'}:{title:'Recuperación',reason:'Fuerza ayer: dejamos espacio antes de repetirla.',kind:'rest'};
  if(c.gym<3){
    if(nextFootballWithin(date,1))return {title:'Fuerza de torso',reason:'Falta fuerza semanal, pero mañana hay fútbol: torso sí; pierna dura no.',kind:'gym'};
-   if(c.run<runTarget&&!recentHard(date)&&(d===3||d===6)&&legRecovery>=65&&ready>=65)return {title:'Fuerza + rodaje suave',reason:'Buen hueco: recuperación suficiente para combinar hipertrofia y base aeróbica sin añadir HIIT.',kind:'combo'};
+   if(c.run<runTarget&&!recentHard(date)&&(d===3||d===6)&&legRecovery>=65&&ready>=65&&readiness().missing.length<=1)return {title:'Fuerza + rodaje suave',reason:'Buen hueco: recuperación suficiente para combinar hipertrofia y base aeróbica sin añadir HIIT.',kind:'combo'};
    if(d===3&&legRecovery>=65)return {title:'Pierna',reason:`Piernas al ${Math.round(legRecovery)} % y readiness ${ready}/100: buen momento para el estímulo principal de fuerza.`,kind:'gym'};
    return {title:'Fuerza full body/torso',reason:'La prioridad pendiente de esta semana es completar el volumen de fuerza sin comprometer el siguiente partido.',kind:'gym'};
  }
@@ -316,7 +316,7 @@ async function ensureProfile(){
  if(!currentUser)return;
  await supabase.from('profiles').upsert({
    user_id:currentUser.id,display_name:'Jorge',birth_year:1988,height_cm:174,weight_kg:70,target_weight_kg:73,protein_target_g:130,timezone:'Europe/Madrid',sleep_target_start:'05:00',sleep_target_end:'13:00'
- },{onConflict:'user_id'});
+ },{onConflict:'user_id',ignoreDuplicates:true});
 }
 async function loadCloud(){
  if(!currentUser)return;
@@ -366,8 +366,9 @@ async function loadCloud(){
  if(!reports.error) cloudReports=reports.data||[];
  if(!injuries.error) cloudInjuries=injuries.data||[];
  if(!syncs.error) cloudSync=syncs.data||[];
- if(!cloudGame){ await supabase.from('game_state').upsert({user_id:currentUser.id},{onConflict:'user_id'}); cloudGame={level:1,xp:0,strength:1,endurance:1,recovery:1,inventory:[]}; }
+ if(!cloudGame&&!game.error){ await supabase.from('game_state').upsert({user_id:currentUser.id},{onConflict:'user_id',ignoreDuplicates:true}); cloudGame={level:1,xp:0,strength:1,endurance:1,recovery:1,inventory:[]}; }
  save();renderAll();
+ document.getElementById('cloudStatus').textContent=failed.length?'Sincronización incompleta':'Sincronizado';
 }
 function setCloudUI(){
  const status=document.getElementById('cloudStatus'),detail=document.getElementById('cloudDetail'),actions=document.getElementById('authActions');
@@ -375,7 +376,7 @@ function setCloudUI(){
    status.textContent='Sesión iniciada';
    detail.textContent=currentUser.email+' · proyecto Training Lab';
    actions.innerHTML='<button class="btn alt" id="logoutBtn">Cerrar sesión</button>';
-   document.getElementById('logoutBtn').onclick=async()=>{await supabase.auth.signOut();};
+   document.getElementById('logoutBtn').onclick=async()=>{const {error}=await supabase.auth.signOut();if(error){window.TrainingLab.report('Cerrar sesión',error);return;}location.reload();};
    document.getElementById('syncNotice').textContent='Datos sincronizados con Supabase. Puedes usar la misma cuenta desde móvil y PC.';
  }else{
    status.textContent='Modo local';
@@ -468,17 +469,22 @@ const CHECKIN_Q=[
 ];
 function renderQuestions(){
  const el=document.getElementById('dailyQuestions'); if(!el)return;
- el.innerHTML=CHECKIN_Q.map(([k,label])=>`<div class="qcard"><b>${label}</b><div class="scale" style="margin-top:8px">${[1,2,3,4,5].map(v=>`<button onclick="setScaleAnswer('${k}',${v},this)">${v}</button>`).join('')}</div></div>`).join('');
+ const saved=cloudCheckins.find(c=>c.checkin_date===iso());
+ const answers={...saved,...dailyDraft};
+ el.innerHTML=(saved?'<p class="notice">Test de hoy guardado. Puedes corregir tus respuestas.</p>':'')+CHECKIN_Q.map(([k,label])=>`<div class="qcard"><b>${label}</b><div class="scale" style="margin-top:8px">${[1,2,3,4,5].map(v=>`<button class="${answers[k]===v?'on':''}" aria-pressed="${answers[k]===v}" onclick="setScaleAnswer('${k}',${v},this)">${v}</button>`).join('')}</div></div>`).join('');
+ document.querySelectorAll('[onclick^="setBoolAnswer"]').forEach(btn=>{const match=btn.getAttribute('onclick').match(/setBoolAnswer\('([^']+)',(true|false)/);if(match){const selected=answers[match[1]]===(match[2]==='true');btn.classList.toggle('on',selected);btn.setAttribute('aria-pressed',String(selected));}});
+ const notes=document.getElementById('checkinNotes');if(saved&&document.activeElement!==notes&&!notes.value)notes.value=saved.notes||'';
 }
 window.setScaleAnswer=function(k,v,btn){dailyDraft[k]=v;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
 window.setBoolAnswer=function(k,v,btn){dailyDraft[k]=v;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on')}
 window.saveCheckin=async function(){
  if(!currentUser)return alert('Inicia sesión para guardar el test diario.');
+ const existed=cloudCheckins.some(c=>c.checkin_date===iso());
  const row={user_id:currentUser.id,checkin_date:iso(),notes:document.getElementById('checkinNotes').value||null};
  for(const [k] of CHECKIN_Q) if(dailyDraft[k]!=null)row[k]=dailyDraft[k];
  for(const k of ['alcohol','caffeine_late','enough_carbs','hydration_ok']) if(dailyDraft[k]!=null)row[k]=dailyDraft[k];
  const {error}=await supabase.from('daily_checkins').upsert(row,{onConflict:'user_id,checkin_date'});
- if(error)return alert(error.message); await awardXp(15,'daily_checkin'); await loadCloud(); alert('Check-in guardado.');
+ if(error)return alert(error.message); if(!existed)await awardXp(15,'daily_checkin'); dailyDraft={};await loadCloud(); alert('Check-in guardado.');
 }
 
 function sleepMinutes(start,end){
@@ -491,21 +497,24 @@ function circDistMin(a,b){
 window.saveSleep=async function(){
  if(!currentUser)return alert('Inicia sesión.');
  const date=document.getElementById('sleepDate').value,start=document.getElementById('sleepStart').value,end=document.getElementById('sleepEnd').value;
- if(!date||!start||!end)return;
+ if(!date||!start||!end){window.TrainingLab.report('Sueño','Completa fecha, hora de dormir y despertar.');return;}
  const mins=sleepMinutes(start,end);
+ if(mins<=0||mins>16*60){window.TrainingLab.report('Sueño','Revisa la duración del sueño: debe ser mayor que cero y como máximo 16 horas.');return;}
+ const stageTotal=Number(document.getElementById('deepMin').value||0)+Number(document.getElementById('remMin').value||0);
+ if(stageTotal>mins){window.TrainingLab.report('Sueño','Profundo y REM no pueden superar la duración total.');return;}
  const startDt=new Date(date+'T'+start+':00');let endDt=new Date(date+'T'+end+':00');if(endDt<=startDt)endDt.setDate(endDt.getDate()+1);
  const row={user_id:currentUser.id,sleep_date:date,source:'manual',sleep_start:startDt.toISOString(),sleep_end:endDt.toISOString(),total_sleep_min:mins,
  deep_sleep_min:+document.getElementById('deepMin').value||null,rem_sleep_min:+document.getElementById('remMin').value||null,sleep_score:+document.getElementById('sleepScoreInput').value||null,
  avg_hrv:+document.getElementById('sleepHrv').value||null,resting_hr:+document.getElementById('sleepRhr').value||null};
  const {error}=await supabase.from('sleep_records').upsert(row,{onConflict:'user_id,sleep_date,source'});if(error)return alert(error.message);
- await awardXp(10,'sleep_log');await loadCloud();
+ if(!cloudSleep.some(s=>s.sleep_date===date))await awardXp(10,'sleep_log');await loadCloud();
 }
 window.alertCorosSleep=function(){
  document.getElementById('corosSleepStatus').textContent='COROS está soportado a nivel de datos, pero tu cuenta debe autorizar el conector/API. La web seguirá funcionando con Health Connect/registro manual mientras tanto.';
 }
 function renderSleep(){
  const a=cloudSleep?.find(s=>(Date.now()-new Date(s.sleep_end||s.sleep_date+'T13:00:00'))/36e5<=36), ring=document.getElementById('sleepRing'); if(!ring)return;
- if(!a){document.getElementById('sleepScore').textContent='—';document.getElementById('todaySleep').textContent='—';document.getElementById('todaySleepWindow').textContent='Falta sueño reciente';return}
+ if(!a){document.getElementById('sleepScore').textContent='—';document.getElementById('todaySleep').textContent='—';document.getElementById('todaySleepWindow').textContent='Falta sueño reciente';document.getElementById('sleepSummary').textContent='Sin sueño reciente';document.getElementById('sleepConsistency').textContent='Referencia personal: 05:00–13:00 ±1 h';ring.style.setProperty('--pct','0%');return}
  const score=a.sleep_score??null;
  ring.style.setProperty('--pct',score+'%');document.getElementById('sleepScore').textContent=score??'—';
  const hrs=((a.total_sleep_min||0)/60).toFixed(1);
@@ -596,6 +605,7 @@ function renderMealPlanner(){
  const el=document.getElementById('macroRemaining');if(!el)return;const t=targetsForToday(),m=todayMeals(),sum=k=>m.reduce((s,x)=>s+Number(x[k]||0),0);
  const rem={p:Math.max(0,t.protein-sum('protein_g')),c:Math.max(0,t.carbs-sum('carbs_g')),f:Math.max(0,t.fat-sum('fat_g'))};
  el.innerHTML=`<div class="grid g3"><div class="metric"><div class="k">Proteína restante</div><div class="v">${Math.round(rem.p)} g</div></div><div class="metric"><div class="k">HC restantes</div><div class="v">${Math.round(rem.c)} g</div></div><div class="metric"><div class="k">Grasa restante</div><div class="v">${Math.round(rem.f)} g</div></div></div>`;
+ el.innerHTML+=`<p class="small muted">Consumido / objetivo: proteína ${Math.round(sum('protein_g'))} / ${t.protein} g · HC ${Math.round(sum('carbs_g'))} / ${t.carbs} g · grasas ${Math.round(sum('fat_g'))} / ${t.fat} g. Las comidas sugeridas usan porciones estimadas.</p>`;
  const eaten=t.carbs-rem.c;document.getElementById('macroFuel').style.width=Math.min(100,eaten/t.carbs*100)+'%';
  const plan=[['desayuno','Avena + skyr + plátano'],['comida','Arroz/pasta + pollo + verduras'],['merienda',footballScheduled(new Date())?'Bocadillo ligero + plátano':'Batido + fruta'],['cena',footballScheduled(new Date())?'Arroz/patata + proteína postpartido':'Pescado/carne + patata/arroz'],['recena','Skyr/leche + fruta']];
  document.getElementById('mealPlanSlots').innerHTML=plan.map(([slot,name])=>`<div class="meal-slot"><b>${slot}</b><br><span class="muted">${name}</span><button class="btn alt" style="margin-top:6px" onclick="logSuggestedMeal('${slot}','${name.replaceAll("'","")}')">✓ He comido algo así</button></div>`).join('');

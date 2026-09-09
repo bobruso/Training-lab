@@ -3,6 +3,7 @@ const id='11111111-1111-4111-8111-111111111111';
 test('authenticated cold start, writes and logout isolation',async({page})=>{
  const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.addInitScript(({id})=>{
+ if(sessionStorage.getItem('qa-session-seeded'))return;sessionStorage.setItem('qa-session-seeded','yes');
  const payload=btoa(JSON.stringify({sub:id,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated'}));
  localStorage.setItem('sb-nnpvklaxhomarxszlclt-auth-token',JSON.stringify({access_token:'eyJhbGciOiJIUzI1NiJ9.'+payload+'.test',refresh_token:'fake-refresh',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user:{id,email:'qa@example.com',aud:'authenticated',role:'authenticated'}}));
  },{id});

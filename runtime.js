@@ -53,9 +53,9 @@
     render();
     setTimeout(()=>{if(!state.appReady)report('Inicio','La aplicación no ha terminado de cargar. El acceso por email sigue disponible. Recarga con conexión.');},15000);
     if('serviceWorker' in navigator){
-      navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='VERSION'){state.cache=e.data.cache;render();}});
+      navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='VERSION'){state.cache=e.data.cache;document.getElementById('updateNotice').hidden=state.frontend.endsWith(String(e.data.cache).replace('training-lab-',''));render();}});
       navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(reg=>{
-        const check=()=>{navigator.serviceWorker.controller?.postMessage({type:'VERSION'});if(navigator.serviceWorker.controller)document.getElementById('updateNotice').hidden=false;};
+        const check=()=>{navigator.serviceWorker.controller?.postMessage({type:'VERSION'});};
         navigator.serviceWorker.controller?.postMessage({type:'VERSION'});
         navigator.serviceWorker.addEventListener('controllerchange',check);
         reg?.update().catch(e=>report('Actualización',e));
