@@ -271,3 +271,16 @@ nav button{flex:0 0 auto}
   }
   nav::-webkit-scrollbar{display:none;width:0;height:0}
 }
+
+
+/* context-v77: Home changes hierarchy according to the user's current state */
+.home-mode-banner{margin-bottom:14px;position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--section-accent,var(--lime)) 46%,var(--line))}
+.home-mode-banner:after{content:"";position:absolute;right:-45px;top:-65px;width:180px;height:180px;border-radius:50%;background:var(--section-accent,var(--lime));filter:blur(70px);opacity:.13;pointer-events:none}
+.home-mode-title{font-size:clamp(25px,4vw,40px);font-weight:950;letter-spacing:-.045em;line-height:1.02;margin:5px 0 8px;max-width:850px}
+.home-mode-banner p{margin-bottom:0;max-width:850px}
+body[data-home-mode="post"] #homeModeBanner{--section-accent:#8fd5ff}
+body[data-home-mode="prematch"] #homeModeBanner{--section-accent:#ff8c73}
+body[data-home-mode="wake"] #homeModeBanner{--section-accent:#9d8cff}
+body[data-home-mode="recovery"] #homeModeBanner{--section-accent:#7de3aa}
+#hoy>.home-activity-now:first-of-type{margin-top:0}
+@media(max-width:700px){.home-mode-banner{padding:16px}.home-mode-title{font-size:27px}}

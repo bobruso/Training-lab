@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909nav76';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909nav76';
-import { createClient } from "./vendor/supabase.js?v=20260909nav76";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910context77';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910context77';
+import { createClient } from "./vendor/supabase.js?v=20260910context77";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -1135,7 +1135,7 @@ window.healthConnectSyncFinished=async function(payload){
  let info={};try{info=typeof payload==='string'?JSON.parse(payload):payload||{}}catch{}
  const silent=healthConnectSilent;healthConnectSilent=false;
  await loadCloud();
- renderAdaptiveActivityResponse();renderWeek();renderToday();
+ renderAdaptiveActivityResponse();renderWeek();renderToday();reorderHomeForContext();
  const el=document.getElementById('sleepSyncStatus');if(el)el.textContent=`Health Connect sincronizado · ${info.sleep??0} sueño(s) · ${info.activities??0} entrenamiento(s)`;
  if(!silent)alert(`Health Connect sincronizado: ${info.sleep??0} sueños y ${info.activities??0} entrenamientos.`);
 }
@@ -1309,7 +1309,91 @@ function renderAdaptiveActivityResponse(){
 }
 function renderHomeActivities(){renderAdaptiveActivityResponse();}
 
-function renderV5(){renderAdaptiveActivityResponse();
+
+function homeLatestActivityAny(){
+ const acts=[...S.activities].filter(a=>['run','football','gym','walk'].includes(a.type));
+ return acts.sort((a,b)=>new Date(b.started_at||b.date+'T12:00:00')-new Date(a.started_at||a.date+'T12:00:00'))[0]||null;
+}
+function homeActivityEndMs(a){
+ if(!a)return null;
+ const start=new Date(a.started_at||a.date+'T12:00:00').getTime();
+ if(!Number.isFinite(start))return null;
+ return start+Number(a.duration||0)*60000;
+}
+function homeMatchDeltaMin(){
+ if(!footballScheduled(new Date()))return null;
+ const raw=S.matchTimes?.[iso()];
+ if(!raw)return null;
+ const m=String(raw).match(/^(\d{1,2}):(\d{2})$/);if(!m)return null;
+ const target=new Date();target.setHours(Number(m[1]),Number(m[2]),0,0);
+ return (target-Date.now())/60000;
+}
+function latestSleepEndMs(){
+ const rows=uniqueNights(cloudSleep||[]);if(!rows.length)return null;
+ const x=rows[0]?.sleep_end?new Date(rows[0].sleep_end).getTime():null;
+ return Number.isFinite(x)?x:null;
+}
+function homeContextMode(){
+ const now=Date.now(),a=homeLatestActivityAny(),end=homeActivityEndMs(a),match=homeMatchDeltaMin();
+ if(a&&a.date===iso()&&end!=null&&now-end>=-30*60000&&now-end<=6*3600000){
+   return {key:'post',label:'POST-ACTIVIDAD',title:`Ahora toca absorber la ${activityLabel(a.type).toLowerCase()}`,text:'La actividad real manda sobre el plan. Recuperación, comida y la siguiente sesión se recalculan desde lo que acabas de hacer.'};
+ }
+ if(match!=null&&match<=360&&match>=-150){
+   if(match>90)return {key:'prematch',label:'PARTIDO HOY',title:'El fútbol pasa a ser la prioridad',text:`Faltan ${Math.max(1,Math.round(match/60))} h aprox. para la pachanga. Combustible, hidratación y llegar con piernas frescas mandan ahora.`};
+   if(match>20)return {key:'prematch',label:'PRE-PARTIDO',title:'Entra en modo partido',text:`Faltan ${Math.round(match)} min. Ahora importan calentamiento, calma y llegar con energía.`};
+   return {key:'prematch',label:'PARTIDO / POST',title:match>=0?'Partido inminente':'Acabas de jugar',text:match>=0?'No añadas carga. Haz el calentamiento progresivo y juega.':'Training Lab cambiará a recuperación en cuanto llegue la actividad del reloj.'};
+ }
+ const sleepEnd=latestSleepEndMs();
+ if(sleepEnd&&now-sleepEnd>=0&&now-sleepEnd<=3*3600000){
+   return {key:'wake',label:'AL DESPERTAR',title:'Primero: cómo has recuperado',text:'Sueño, piernas y percepción de hoy tienen más peso que el plan que estaba escrito ayer.'};
+ }
+ const rec=calcRecovery(new Date());
+ const legs=(Number(rec.cuadriceps||0)+Number(rec.isquios||0)+Number(rec.gemelos||0)+Number(rec.gluteo||0))/4;
+ const ready=readiness().score;
+ if(ready<50||legs<55||fatigueFor(new Date())>=4){
+   return {key:'recovery',label:'RECUPERACIÓN',title:'Hoy manda recuperar',text:`Contexto actual: estado ${ready}/100 · piernas ${Math.round(legs)} %. La app reduce carga antes de obligarte a cumplir un calendario.`};
+ }
+ return {key:'normal',label:'HOY',title:'Plan adaptado al contexto actual',text:'Training Lab combina lo que has hecho, cómo has dormido, tu recuperación y lo que viene después.'};
+}
+function ensureHomeModeBanner(){
+ const hoy=document.getElementById('hoy');if(!hoy)return null;
+ let el=document.getElementById('homeModeBanner');
+ if(!el){
+   el=document.createElement('div');el.id='homeModeBanner';el.className='card home-mode-banner';
+   el.innerHTML='<div class="eyebrow" id="homeModeLabel">HOY</div><div class="home-mode-title" id="homeModeTitle">Calculando contexto…</div><p class="muted" id="homeModeText"></p>';
+   hoy.prepend(el);
+ }
+ return el;
+}
+function reorderHomeForContext(){
+ const hoy=document.getElementById('hoy');if(!hoy)return;
+ const mode=homeContextMode(),banner=ensureHomeModeBanner();
+ document.body.dataset.homeMode=mode.key;
+ const label=document.getElementById('homeModeLabel'),title=document.getElementById('homeModeTitle'),text=document.getElementById('homeModeText');
+ if(label)label.textContent=mode.label;if(title)title.textContent=mode.title;if(text)text.textContent=mode.text;
+ const activity=document.getElementById('homeActivityNow');
+ const hero=hoy.querySelector(':scope > .hero');
+ const smart=hoy.querySelector(':scope > .smart-home-card');
+ const decision=hoy.querySelector('.smart-decision-card')?.closest(':scope > .section')||hoy.querySelector('.smart-decision-card')?.parentElement;
+ const match=document.getElementById('matchDayPanel');
+ const metric=hero?.nextElementSibling?.classList?.contains('grid')?hero.nextElementSibling:hoy.querySelector(':scope > .section.grid.g3');
+ const moveAfter=(node,after)=>{if(node&&after&&node!==after)after.after(node)};
+ hoy.prepend(banner);
+ if(mode.key==='post'){
+   moveAfter(activity,banner);moveAfter(smart,activity||banner);moveAfter(metric,smart||activity||banner);moveAfter(decision,metric||smart||activity||banner);moveAfter(hero,decision||metric||smart||activity||banner);
+ }else if(mode.key==='prematch'){
+   if(match&&match.style.display!=='none')moveAfter(match,banner);
+   moveAfter(smart,(match&&match.style.display!=='none')?match:banner);moveAfter(decision,smart||banner);moveAfter(metric,decision||smart||banner);moveAfter(activity,metric||decision||smart||banner);moveAfter(hero,activity||metric||decision||smart||banner);
+ }else if(mode.key==='wake'){
+   moveAfter(metric,banner);moveAfter(smart,metric||banner);moveAfter(decision,smart||metric||banner);moveAfter(activity,decision||smart||metric||banner);moveAfter(hero,activity||decision||smart||metric||banner);
+ }else if(mode.key==='recovery'){
+   moveAfter(smart,banner);moveAfter(metric,smart||banner);moveAfter(activity,metric||smart||banner);moveAfter(decision,activity||metric||smart||banner);moveAfter(hero,decision||activity||metric||smart||banner);
+ }else{
+   moveAfter(hero,banner);moveAfter(metric,hero||banner);moveAfter(smart,metric||hero||banner);moveAfter(decision,smart||metric||hero||banner);moveAfter(activity,decision||smart||metric||hero||banner);
+ }
+}
+
+function renderV5(){reorderHomeForContext();renderAdaptiveActivityResponse();
  renderHomeActivities();renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderFootballTrends();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
 }
 
