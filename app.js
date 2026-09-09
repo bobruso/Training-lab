@@ -31,7 +31,7 @@ const DAYSHORT=['D','L','M','X','J','V','S'];
 const STORE='traininglab-v2';
 const base={
  profile:{weight:70,height:1.74,age:38,protein:130},
- activities:[],weights:[],footballOverrides:{},restDays:{},fatigue:{}
+ activities:[],weights:[],footballOverrides:{},restDays:{},fatigue:{},matchTimes:{}
 };
 let S=load();
 function load(){try{const x=JSON.parse(localStorage.getItem(currentUser ? STORE+':'+currentUser.id : STORE));return Object.assign(structuredClone(base),x||{})}catch(e){return structuredClone(base)}}
@@ -352,6 +352,7 @@ async function loadCloud(){
      if(s.fatigue)S.fatigue[s.day]=s.fatigue;
      if(s.rest_requested)S.restDays[s.day]=true;
      if(s.football_override!==null)S.footballOverrides[s.day]=s.football_override;
+     if(s.football_time)(S.matchTimes??={})[s.day]=s.football_time.slice(0,5);
    }
  }
  if(!analyses.error) cloudAnalyses = analyses.data || [];
@@ -606,17 +607,29 @@ window.logSuggestedMeal=async function(type,title){
 }
 function renderMatchMode(){
  const panel=document.getElementById('matchDayPanel');if(!panel)return;const isMatch=footballScheduled(new Date());panel.style.display=isMatch?'block':'none';if(!isMatch)return;
- const hour=20.5,now=new Date(),match=new Date();match.setHours(20,30,0,0);if(match<now)match.setDate(match.getDate()+1);const ms=match-now,h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000);
- document.getElementById('matchCountdown').textContent=`${h}h ${m}m`;
+ const time=S.matchTimes?.[iso()],now=new Date(),match=time?new Date(iso()+'T'+time+':00'):null;
+ const ms=match?match-now:Infinity,h=Math.floor(Math.max(0,ms)/3600000),m=Math.floor(Math.max(0,ms)%3600000/60000);
+ document.getElementById('matchCountdown').textContent=!time?'Hora por confirmar':ms<=0?'Hora de partido alcanzada':`${h}h ${m}m`;
+ const input=document.getElementById('matchTime');if(input&&document.activeElement!==input)input.value=time||'';
  const t=targetsForToday(),mels=todayMeals(),c=mels.reduce((s,x)=>s+Number(x.carbs_g||0),0),pct=Math.min(100,c/t.carbs*100);
  document.getElementById('matchFuel').style.width=pct+'%';document.getElementById('matchFuelText').textContent=`${Math.round(c)} / ${t.carbs} g de HC objetivo`;
  document.getElementById('matchMealAdvice').innerHTML=ms/3600000>4?'<div class="notice">Prioriza ahora una comida alta en carbohidratos y moderada en grasa/fibra.</div>':ms/3600000>1.5?'<div class="notice">Merienda fácil: pan/arroz/avena + fruta; evita una comida muy pesada.</div>':'<div class="notice">Pequeño aporte fácil si tienes hambre: plátano, tostada con miel o bebida con carbohidrato.</div>';
+ if(ms<=0)document.getElementById('matchMealAdvice').textContent='Al terminar, registra el partido o sube el FIT para adaptar la recuperación.';
 }
+window.saveMatchTime=async function(){
+ const time=document.getElementById('matchTime').value;
+ if(!time){window.TrainingLab.report('Partido','Introduce una hora válida.');return;}
+ if(currentUser)await supabase.from('daily_status').upsert({user_id:currentUser.id,day:iso(),football_time:time,football_override:true},{onConflict:'user_id,day'});
+ (S.matchTimes??={})[iso()]=time;S.footballOverrides[iso()]=true;save();renderAll();
+};
 function renderPostMatch(){
  const el=document.getElementById('postMatchRecovery');if(!el)return;
  const f=S.activities.filter(a=>a.type==='football').sort((a,b)=>b.date.localeCompare(a.date))[0];
  if(!f){document.getElementById('postMatchTitle').textContent='Sin partido reciente detectado';el.textContent='Tras registrar/subir un partido, aquí aparecerá una rutina de recuperación adaptada.';return}
- const endHour=22,age=(Date.now()-new Date(f.date+`T${endHour}:00:00`))/3600000;if(age<0||age>36)return;
+ const start=f.started_at|| (S.matchTimes?.[f.date]?f.date+'T'+S.matchTimes[f.date]+':00':null);
+ if(!start){document.getElementById('postMatchTitle').textContent='Partido registrado · hora desconocida';return;}
+ const ended=new Date(start).getTime()+(Number(f.duration)||0)*60000,age=(Date.now()-ended)/3600000;
+ if(age<0||age>36){document.getElementById('postMatchTitle').textContent='Sin partido reciente finalizado';el.textContent='La recuperación aparecerá tras un partido finalizado en las últimas 36 horas.';return;}
  const high=f.highIntensity||0,hard=(f.rpe||8)>=8||high>=900||(f.hr&&f.hr>=158);
  document.getElementById('postMatchTitle').textContent=hard?'Recuperación prioritaria tras el partido':'Recuperación tras tu último partido';
  el.innerHTML=`<div class="grid g3"><div class="notice"><b>0–20 min</b><br>5–8 min caminando, rehidratar y no pasar de sprint a quedarte inmóvil.</div><div class="notice"><b>Comida</b><br>25–40 g proteína + carbohidratos abundantes. ${high?`Has registrado ${Math.round(high)} m de alta intensidad.`:''}</div><div class="${hard?'warning':'notice'}"><b>Próximas 24 h</b><br>${hard?'Torso ligero o descanso. Nada de pierna pesada si sigue cargada.':'Actividad suave y reevalúa piernas/readiness.'}</div></div>`;

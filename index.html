@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.2 · build 9d64591b94">
-<script src="./runtime.js?v=9d64591b94" defer></script>
+<meta name="build" content="v6.2 · build a4809ced23">
+<script src="./runtime.js?v=a4809ced23" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=9d64591b94">
+<link rel="stylesheet" href="./styles.css?v=a4809ced23">
 </head>
 <body>
 <div class="app">
@@ -75,6 +75,7 @@
   </div>
 
   <div class="section card" id="matchDayPanel" style="display:none">
+   <label for="matchTime">Hora del partido</label> <input id="matchTime" type="time" aria-label="Hora del partido"><button class="btn alt" onclick="saveMatchTime()">Guardar hora</button>
    <div class="eyebrow">Modo día de partido</div><div class="grid g2"><div><div class="match-countdown" id="matchCountdown">—</div><p class="muted">para la pachanga</p><div class="fuel"><i id="matchFuel" style="width:0%"></i></div><p class="muted" id="matchFuelText"></p></div><div><h3>Tu plan de gasolina</h3><div id="matchMealAdvice"></div></div></div>
   </div>
   <div class="section grid g3">
@@ -308,6 +309,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=9d64591b94"></script>
+<script type="module" src="./app.js?v=a4809ced23"></script>
 </body>
 </html>
