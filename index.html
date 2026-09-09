@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1114">
+<title>Training Lab · Adaptativo</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app">
+ <div class="top"><div class="brand">TRAINING LAB</div><div class="profile">Jorge · 38 años · 70 kg · 1,74 m</div></div>
+<div class="card" id="cloudCard" style="margin-bottom:12px">
+  <div style="display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+    <div>
+      <div class="eyebrow">Training Lab Cloud</div>
+      <strong id="cloudStatus">Modo local</strong>
+      <div class="small muted" id="cloudDetail">Tus datos se guardan en este navegador. Inicia sesión para sincronizar móvil y PC.</div>
+    </div>
+    <div class="actions" id="authActions">
+      <input id="authEmail" type="email" placeholder="tu@email.com" style="min-width:220px;background:#0d1316;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px">
+      <button class="btn" id="loginBtn">Enviar enlace</button>
+    </div>
+  </div>
+</div>
+ <nav>
+  <button class="on" data-page="hoy">Hoy</button><button data-page="semana">Semana</button><button data-page="comer">Comer</button><button data-page="registro">Registrar</button><button data-page="entrenos">Entrenamientos</button><button data-page="gym">Gym</button><button data-page="progreso">Progreso</button>
+ </nav>
+
+ <section class="page on" id="hoy">
+  <div class="card hero">
+   <div class="eyebrow">Ahora</div>
+   <div class="today" id="todayText">Hoy es...</div>
+   <div class="clock" id="clock">--:--</div>
+   <p class="muted" id="mealNow">Calculando ingesta...</p>
+   <div class="pills">
+    <span class="pill" id="weeklyLoad">Carga semanal</span>
+    <span class="pill" id="proteinPill">Proteína: 130 g</span>
+    <span class="pill" id="carbPill">HC: —</span>
+    <span class="pill" id="fatiguePill">Fatiga: —</span>
+   </div>
+  </div>
+
+  <div class="section grid g2">
+   <div class="card">
+    <div class="eyebrow">Te toca</div>
+    <div class="bigchoice" id="todayPlan">—</div>
+    <p class="muted" id="todayReason"></p>
+    <div class="actions">
+      <button class="btn" onclick="markTodayDone()">Hecho</button>
+      <button class="btn alt" onclick="openRegister()">Registrar actividad</button>
+    </div>
+   </div>
+   <div class="card">
+    <div class="eyebrow">Pachanga</div>
+    <h2>¿Juegas hoy?</h2>
+    <p class="muted small">El fútbol no se desplaza. Si aparece una pachanga extra, la app recoloca running/gym para no acumular intensidad.</p>
+    <div class="actions"><button class="btn" onclick="setFootball(true)">Sí, juego</button><button class="btn alt" onclick="setFootball(false)">No juego</button></div>
+    <div id="footballStatus" class="small muted" style="margin-top:9px"></div>
+   </div>
+  </div>
+
+  <div class="section grid g3">
+    <div class="card">
+      <div class="eyebrow">Estado</div><h3>¿Cómo te notas?</h3>
+      <div class="field"><label>Fatiga percibida 1–5</label>
+      <select id="fatigueSel" onchange="saveFatigue()"><option value="1">1 · Muy fresco</option><option value="2">2 · Bien</option><option value="3" selected>3 · Normal</option><option value="4">4 · Cansado</option><option value="5">5 · Muy cargado</option></select></div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Peso</div><h3 id="weighTitle">Próximo control</h3><p class="muted" id="weighText"></p>
+      <div class="actions"><button class="btn alt" onclick="navTo('registro');document.getElementById('weightKg').focus()">Registrar peso</button></div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Decisión rápida</div><h3>¿Necesitas parar?</h3><button class="btn red big" onclick="restToday()">HOY DESCANSO</button>
+      <p class="small muted" id="restResult" style="margin-top:8px"></p>
+    </div>
+  </div>
+
+  <div class="section">
+   <div class="sectionhead"><h2>Puedes comer</h2><span class="muted" id="mealLabel"></span></div>
+   <div class="grid g3" id="todayRecipes"></div>
+  </div>
+ </section>
+
+ <section class="page" id="semana">
+   <div class="sectionhead"><h2>Semana adaptativa</h2><span class="muted">objetivo: 3 fuerza · 2 aeróbicos · fútbol real</span></div>
+   <div class="week" id="weekGrid"></div>
+   <div class="section grid g3">
+    <div class="card metric"><div class="k">Fuerza esta semana</div><div class="v" id="gymCount">0/3</div></div>
+    <div class="card metric"><div class="k">Running suave</div><div class="v" id="runCount">0/2</div></div>
+    <div class="card metric"><div class="k">Pachangas</div><div class="v" id="footballCount">0</div></div>
+   </div>
+   <div class="card section"><div class="eyebrow">Motor de planificación</div><div id="plannerNotes" class="muted"></div></div>
+ </section>
+
+ <section class="page" id="comer">
+   <div class="sectionhead"><h2>Comida según carga</h2><span class="muted">periodización simple</span></div>
+   <div class="grid g4">
+    <div class="card metric"><div class="k">Proteína diaria</div><div class="v">125–140 g</div><div class="muted">objetivo práctico: 130 g</div></div>
+    <div class="card metric"><div class="k">HC descanso</div><div class="v">250–300 g</div></div>
+    <div class="card metric"><div class="k">HC entreno</div><div class="v">300–350 g</div></div>
+    <div class="card metric"><div class="k">HC fútbol</div><div class="v">350–425 g</div></div>
+   </div>
+   <div class="sectionhead section"><h2>Recetas</h2><span class="muted">con acceso rápido a Cookidoo</span></div>
+   <div class="grid g3" id="allRecipes"></div>
+ </section>
+
+ <section class="page" id="registro">
+   <div class="sectionhead"><h2>Registrar</h2><span class="muted">lo que realmente has hecho manda sobre el plan</span></div>
+   <div class="grid g2">
+    <div class="card">
+      <div class="eyebrow">Actividad</div><h2>Añadir entrenamiento</h2>
+      <div class="formrow">
+       <div class="field"><label>Fecha</label><input type="date" id="actDate"></div>
+       <div class="field"><label>Tipo</label><select id="actType"><option value="football">Fútbol</option><option value="run">Running</option><option value="gym">Gimnasio</option><option value="walk">Paseo/recuperación</option></select></div>
+       <div class="field"><label>Duración min</label><input id="actDur" type="number" min="0" value="60"></div>
+       <div class="field"><label>Esfuerzo RPE 1–10</label><input id="actRpe" type="number" min="1" max="10" value="6"></div>
+      </div>
+      <div class="formrow" style="margin-top:8px">
+       <div class="field"><label>Distancia km</label><input id="actDist" type="number" step=".01"></div>
+       <div class="field"><label>FC media</label><input id="actHr" type="number"></div>
+       <div class="field"><label>FC máxima</label><input id="actHrMax" type="number"></div>
+       <div class="field"><label>Calorías</label><input id="actKcal" type="number"></div>
+      </div>
+      <div class="actions" style="margin-top:12px"><button class="btn" onclick="saveActivity()">Guardar actividad</button></div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Peso</div><h2>Control corporal</h2>
+      <div class="formrow">
+       <div class="field"><label>Fecha</label><input type="date" id="weightDate"></div>
+       <div class="field"><label>Peso kg</label><input id="weightKg" type="number" step=".1" value="70"></div>
+      </div>
+      <p class="muted small">Usa el peso medio semanal, no un único día. Objetivo orientativo: +0,1 a +0,25 kg/semana.</p>
+      <button class="btn alt" onclick="saveWeight()">Guardar peso</button>
+    </div>
+   </div>
+   <div class="card section">
+    <div class="eyebrow">Historial reciente</div><div style="overflow:auto"><table class="history"><thead><tr><th>Fecha</th><th>Tipo</th><th>Dur.</th><th>RPE</th><th>Dist.</th><th>FC</th></tr></thead><tbody id="activityRows"></tbody></table></div>
+   </div>
+ </section>
+
+ <section class="page" id="entrenos">
+   <div class="sectionhead"><h2>Entrenamientos</h2><span class="muted">fútbol · running · gimnasio</span></div>
+   <div class="grid g3">
+    <div class="card"><div class="eyebrow">Fútbol · nube privada</div><h2>FIT del partido</h2>
+      <div class="field"><label>Archivo .fit</label><input type="file" id="fitInput" accept=".fit"></div>
+      <p class="muted small">Con sesión iniciada, el FIT se sube al bucket privado y se analiza automáticamente: distancia, FC, zonas, velocidad, sprints, alta intensidad y track GPS.</p>
+      <button class="btn" onclick="registerFit()">Subir FIT</button><div id="fitResult" class="small muted" style="margin-top:8px"></div>
+    </div>
+    <div class="card"><div class="eyebrow">Running</div><h2>Base aeróbica</h2><p class="muted">Ritmo conversacional. El indicador clave será correr más rápido al mismo coste cardíaco, no perseguir pulsaciones artificialmente bajas.</p><div class="score">40–60'</div></div>
+    <div class="card"><div class="eyebrow">COROS</div><h2>Sincronización</h2><p class="muted">La versión conectada podrá importar automáticamente actividades y FIT originales desde COROS. Requiere autorización de tu cuenta.</p><span class="tag">Preparado para conectar</span></div>
+   </div>
+ </section>
+
+ <section class="page" id="gym">
+  <div class="sectionhead"><h2>Gym / casa</h2><span class="muted">hipertrofia compatible con fútbol</span></div>
+  <div class="grid g2">
+   <div class="card"><div class="eyebrow">Torso · día con fútbol</div><div class="exercise"><b>Press banca / máquina</b> · 3×6–10</div><div class="exercise"><b>Remo sentado</b> · 3×8–12</div><div class="exercise"><b>Jalón al pecho</b> · 3×8–12</div><div class="exercise"><b>Elevaciones laterales</b> · 3×12–20</div><div class="exercise"><b>Bíceps + tríceps</b> · 2–3×10–15</div></div>
+   <div class="card"><div class="eyebrow">Pierna · principal</div><div class="exercise"><b>Prensa / sentadilla</b> · 3×6–10</div><div class="exercise"><b>Peso muerto rumano</b> · 3×8–10</div><div class="exercise"><b>Split squat</b> · 2–3×8–12</div><div class="exercise"><b>Curl femoral</b> · 2–3×10–15</div><div class="exercise"><b>Gemelos</b> · 3×10–15</div></div>
+   <div class="card"><div class="eyebrow">Casa · mancuernas</div><div class="exercise">Goblet squat · 3×10–15</div><div class="exercise">RDL mancuerna · 3×10–15</div><div class="exercise">Press suelo · 3×8–15</div><div class="exercise">Remo unilateral · 3×10–15</div><div class="exercise">Dominadas · 3 series con 1–2 reps en recámara</div></div>
+   <div class="card"><div class="eyebrow">Core · 10 min</div><div class="exercise">Plancha · 3×30–60 s</div><div class="exercise">Dead bug · 3×8–12/lado</div><div class="exercise">Plancha lateral · 2×30–45 s/lado</div><div class="exercise">Elevación de piernas · 2–3×8–15</div></div>
+  </div>
+ </section>
+
+ <section class="page" id="progreso">
+   <div class="sectionhead"><h2>Progreso</h2><span class="muted">compararemos producción y coste</span></div><div class="notice" id="syncNotice">Los datos locales funcionan ya. Al iniciar sesión se sincronizarán con tu proyecto Training Lab.</div>
+   <div class="grid g4">
+    <div class="card metric"><div class="k">Peso actual</div><div class="v" id="currentWeight">70,0 kg</div></div>
+    <div class="card metric"><div class="k">Carga 7 días</div><div class="v" id="load7">0</div><div class="muted">min × RPE</div></div>
+    <div class="card metric"><div class="k">FC media fútbol</div><div class="v" id="avgFootballHr">—</div></div>
+    <div class="card metric"><div class="k">Km últimos 7 días</div><div class="v" id="km7">0</div></div>
+   </div>
+   <div class="grid g2 section">
+    <div class="card"><div class="eyebrow">Objetivo músculo</div><h2>Subida lenta</h2><p id="weightTrend" class="muted">Aún no hay suficientes pesos para calcular tendencia.</p></div>
+    <div class="card"><div class="eyebrow">Objetivo cardiovascular</div><h2>Mismo trabajo, menor coste</h2><p class="muted">Con suficientes sesiones compararemos ritmo/distancia por FC, carga cardiovascular, recuperación y rendimiento de alta intensidad entre partidos.</p></div>
+   </div>
+   <div class="section grid g2">
+    <div class="card">
+      <div class="eyebrow">Último FIT analizado</div>
+      <h2 id="latestAnalysisTitle">Todavía no hay análisis</h2>
+      <div class="grid g4" id="latestAnalysisMetrics" style="margin-top:10px"></div>
+      <p class="muted" id="latestAnalysisText">Cuando subas el primer partido aparecerá aquí el resumen automático.</p>
+      <div id="latestStrengths"></div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Track / heatmap</div>
+      <h2>Movimiento GPS</h2>
+      <canvas id="heatmapCanvas" width="640" height="420" style="width:100%;aspect-ratio:16/10;background:#0b1114;border-radius:14px;border:1px solid var(--line)"></canvas>
+      <p class="muted small">Vista relativa del recorrido. No publica coordenadas ni usa mapas externos.</p>
+    </div>
+   </div>
+ </section>
+</div>
+
+<div class="bottom">
+ <button class="on" data-page="hoy">HOY</button><button data-page="semana">SEMANA</button><button data-page="comer">COMER</button><button data-page="registro">REGISTRAR</button><button data-page="progreso">PROGRESO</button>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
