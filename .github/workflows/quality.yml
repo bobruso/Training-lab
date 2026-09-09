@@ -27,3 +27,9 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: ./gradlew :app:assembleDebug :app:lintDebug --no-daemon
         working-directory: android-companion
+      - uses: actions/upload-artifact@v4
+        with:
+          name: training-lab-android-debug
+          path: android-companion/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

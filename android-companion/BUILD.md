@@ -27,3 +27,7 @@ La URL ya es `https://bobruso.github.io/Training-lab/`. El backend permitido es 
 El token se conserva durante la operación y se borra después. Los enlaces externos se abren fuera del WebView. [Seguridad de puentes WebView](https://developer.android.com/privacy-and-security/risks/insecure-webview-native-bridges).
 
 Pendiente: validar paginación de todos los registros, deduplicación entre apps proveedoras, permisos parciales y asociación de distancia/calorías en intervalos solapados. No se ha probado en un dispositivo físico durante esta sesión.
+
+## Descargar el APK de prueba
+
+En GitHub → Actions → Training Lab quality, abrir una ejecución correcta y descargar el artefacto `training-lab-android-debug`. Extraer el ZIP e instalar `app-debug.apk` en Android. El artefacto caduca a los 14 días; no se añade el binario a Git. Es una compilación de prueba firmada con la clave debug del runner: futuras compilaciones pueden requerir desinstalar la anterior (se pierde la sesión local, no los datos ya sincronizados en Supabase).
