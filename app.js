@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909banner64';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909banner64';
-import { createClient } from "./vendor/supabase.js?v=20260909banner64";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909ui65';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909ui65';
+import { createClient } from "./vendor/supabase.js?v=20260909ui65";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
