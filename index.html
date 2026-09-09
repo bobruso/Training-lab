@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c1114"><link rel="manifest" href="./manifest.webmanifest">
-<meta name="build" content="v6.5 · build ui65">
-<script src="./runtime.js?v=20260909ui65" defer></script>
+<meta name="build" content="v6.6 · build home66">
+<script src="./runtime.js?v=20260909home66" defer></script>
 <title>Training Lab · Adaptativo</title>
-<link rel="stylesheet" href="./styles.css?v=20260909ui65">
+<link rel="stylesheet" href="./styles.css?v=20260909home66">
 </head>
 <body>
 <div class="app">
 <div id="appError" class="warning" role="alert" hidden></div>
-<div id="updateNotice" class="notice" hidden>Versión actualizada disponible. Guarda lo que estés editando y <button class="btn alt" onclick="location.reload()">recarga</button>.</div>
+<div id="updateNotice" class="update-modal" hidden><div class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="updateTitle"><div class="eyebrow">Actualización</div><h2 id="updateTitle">Nueva versión disponible</h2><p class="muted">Training Lab tiene una versión más reciente. Pulsa actualizar para cargarla.</p><button class="btn big" onclick="location.reload()">Actualizar ahora</button></div></div>
 <details id="diagnostics" class="card" hidden open><summary>Diagnóstico</summary><pre id="diagnosticData" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
  <div class="top"><div class="brand">TRAINING LAB</div><div class="profile">Jorge · 38 años · 70 kg · 1,74 m</div></div>
 <div class="card" id="cloudCard" style="margin-bottom:12px">
@@ -48,7 +48,7 @@
   </div>
 
   <div class="section grid g3">
-   <div class="card metric"><div class="k">Readiness</div><div class="v" id="readinessScore">—</div><div class="muted" id="readinessWhy">Necesito sueño + check-in.</div></div>
+   <div class="card metric readiness-card"><div class="k">Estado para entrenar</div><div class="v" id="readinessScore">—</div><div class="readiness-label" id="readinessLabel">Calculando...</div><div class="muted" id="readinessWhy">Combina sueño, recuperación, carga reciente y cómo te encuentras.</div><details class="readiness-help"><summary>¿Qué significa?</summary><p class="small muted">Es una estimación orientativa de lo preparado que estás hoy para entrenar. No es una medición médica. Cuanto más alto, más favorable es el contexto para meter carga; cuanto más bajo, más conviene ajustar o recuperar.</p><div id="readinessBreakdown"></div></details></div>
    <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
    <div class="card metric"><div class="k">Nivel RPG</div><div class="v" id="todayLevel">1</div><div class="muted" id="todayXp">0 XP</div></div>
   </div>
@@ -330,6 +330,6 @@
 </div>
 
 
-<script type="module" src="./app.js?v=20260909ui65"></script>
+<script type="module" src="./app.js?v=20260909home66"></script>
 </body>
 </html>

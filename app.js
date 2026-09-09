@@ -1,6 +1,6 @@
-import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909ui65';
-import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909ui65';
-import { createClient } from "./vendor/supabase.js?v=20260909ui65";
+import {analyzeLocalFit} from './vendor/fit-local.js?v=20260909home66';
+import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260909home66';
+import { createClient } from "./vendor/supabase.js?v=20260909home66";
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -123,7 +123,7 @@ const recipes=[
  ['recena','Skyr + avena + fruta',28,46,8,'Proteína fácil antes de dormir.'],
  ['recena','Leche + plátano + tostada',20,58,10,'Sencillo si faltan calorías.']
 ];
-function mealForHour(h){if(h>=13&&h<16)return'desayuno';if(h>=16&&h<19)return'comida';if(h>=19&&h<22)return'merienda';if(h>=22||h<2)return'cena';return'recena'}
+function mealForHour(h){if(h>=13&&h<15)return'desayuno';if(h>=15&&h<18)return'comida';if(h>=18&&h<21)return'merienda';if(h>=21||h<1)return'cena';return'recena'}
 function recipeCard(r){let [meal,n,p,c,f,desc]=r;return `<div class="card recipe"><span class="tag">${meal}</span><h3>${n}</h3><div class="meta">P ${p} g · HC ${c} g · G ${f} g</div><p class="muted">${desc}</p><a class="btn alt" style="display:inline-block;text-decoration:none" target="_blank" href="https://cookidoo.es/search/es-ES?query=${encodeURIComponent(n)}">Buscar en Cookidoo</a></div>`}
 function renderToday(){
  const n=new Date(), plan=adaptivePlan(n), [load,carbs]=loadLabel(plan), fat=fatigueFor(n), meal=mealForHour(n.getHours());
@@ -627,7 +627,18 @@ function renderSleep(){
  document.getElementById('todaySleep').textContent=(total/60).toFixed(1)+' h';document.getElementById('todaySleepWindow').textContent=`${start} → ${end}`;
 }
 function readiness(){return readinessModel({sleep:cloudSleep,checkins:cloudCheckins,activities:S.activities,injuries:cloudInjuries});}
-function renderReadiness(){const r=readiness(),el=document.getElementById('readinessScore');if(!el)return;el.textContent=r.score+'/100';document.getElementById('readinessWhy').textContent=r.text}
+function renderReadiness(){
+ const r=readiness(),el=document.getElementById('readinessScore');if(!el)return;
+ const label=r.score>=80?'Muy buena disponibilidad':r.score>=65?'Buena disponibilidad':r.score>=50?'Disponibilidad intermedia':'Disponibilidad baja';
+ el.textContent=r.score+'/100';
+ const lab=document.getElementById('readinessLabel');if(lab)lab.textContent=label;
+ const why=document.getElementById('readinessWhy');if(why)why.textContent='Te orienta sobre cuánta carga tiene sentido meter hoy. Se calcula con tus datos reales y tu percepción.';
+ const box=document.getElementById('readinessBreakdown');if(box){
+   const parts=(r.parts||[]).filter(p=>p.label!=='Base orientativa');
+   box.innerHTML=parts.length?parts.map(p=>`<div class="readiness-factor"><span>${p.label}</span><b class="${p.value>0?'delta-good':p.value<0?'delta-bad':'delta-neutral'}">${p.value>0?'+':''}${p.value}</b></div>`).join(''):'<div class="small muted">Todavía faltan datos para desglosarlo bien.</div>';
+   if(r.missing?.length)box.innerHTML+=`<div class="small muted readiness-missing">Aún faltan: ${r.missing.join(', ')}.</div>`;
+ }
+}
 
 function calcRecovery(date=new Date()){const now=iso(date)===iso()?new Date():new Date(iso(date)+'T15:00:00');return recoveryModel({activities:S.activities,sets:cloudSets,now});}
 function renderRecovery(){
