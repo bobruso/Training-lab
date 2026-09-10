@@ -1,5 +1,5 @@
 const CACHE='training-lab-20260910iconfix83';
-const ASSETS=['./','./index.html','./app.js?v=20260910fitbridge82','./runtime.js?v=20260910fitbridge82','./styles.css?v=20260910fitbridge82','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
+const ASSETS=['./','./index.html','./app.js?v=20260910iconfix83','./runtime.js?v=20260910iconfix83','./styles.css?v=20260910iconfix83','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
 // Runtime refresh: account controls moved from Home into Ajustes / Perfil.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
@@ -20,7 +20,16 @@ self.addEventListener('fetch',event=>{
   if(!isDocument&&!asset)return; // Never cache API, tokens, arbitrary paths or uploads.
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE);
-    const cached=await cache.match(isDocument?new URL('./index.html',base).href:event.request);
-    return cached || fetch(event.request);
+    if(isDocument){
+      const indexUrl=new URL('./index.html',base).href;
+      try{
+        const fresh=await fetch(new Request(indexUrl,{cache:'no-store'}));
+        if(fresh.ok)await cache.put(indexUrl,fresh.clone());
+        return fresh;
+      }catch{
+        return await cache.match(indexUrl);
+      }
+    }
+    return (await cache.match(event.request)) || fetch(event.request);
   })());
 });

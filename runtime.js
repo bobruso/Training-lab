@@ -200,7 +200,7 @@
     render();
     setTimeout(()=>{if(!state.appReady)report('Inicio','La aplicación no ha terminado de cargar. Recarga con conexión para iniciar sesión.');},15000);
     if('serviceWorker' in navigator){
-      navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='VERSION'){state.cache=e.data.cache;const cacheVersion=String(e.data.cache||'').replace(/^training-lab-/,'');const runtimeSrc=document.querySelector('script[src*="runtime.js"]')?.src;const runtimeVersion=runtimeSrc?new URL(runtimeSrc,location.href).searchParams.get('v'):null;const notice=document.getElementById('updateNotice');if(notice)notice.hidden=!!runtimeVersion&&runtimeVersion===cacheVersion;render();}});
+      navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='VERSION'){state.cache=e.data.cache;render();}});
       navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(reg=>{
         const check=()=>{navigator.serviceWorker.controller?.postMessage({type:'VERSION'});};
         navigator.serviceWorker.controller?.postMessage({type:'VERSION'});
