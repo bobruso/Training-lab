@@ -1,0 +1,40 @@
+name: Training Lab icon v8.1
+
+on:
+  push:
+    paths:
+      - '.github/workflows/icon-v81.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Apply icon patch
+        run: python3 tools/patch_icon_v81.py
+      - name: Validate web
+        run: npm ci && npm run check && node --test tests/*.test.mjs
+      - name: Validate Android
+        run: ./gradlew :app:assembleDebug :app:lintDebug --no-daemon
+        working-directory: android-companion
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html manifest.webmanifest service-worker.js android-companion/app/src/main/AndroidManifest.xml android-companion/app/build.gradle.kts
+          git commit -m "Use Training Lab icon on web and Android" || exit 0
+          git push origin HEAD:main
