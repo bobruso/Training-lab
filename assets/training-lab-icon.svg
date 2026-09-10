@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 439 439" role="img" aria-label="Training Lab">
+  <defs>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08F3E9"/>
+      <stop offset="1" stop-color="#11D9E5"/>
+    </linearGradient>
+  </defs>
+  <rect width="439" height="439" fill="#030712"/>
+  <path fill="#FAFAFA" d="M55 148L123 147L125 149L101 219H155L178 149L180 147L239 148L261 99H81Z"/>
+  <path fill="#FAFAFA" d="M147 245H92L60 339L116 338Z"/>
+  <path fill="url(#cyan)" d="M328 99L277 100L235 219L288 218Z"/>
+  <path fill="url(#cyan)" d="M317 232L235 231L226 248L224 245L214 165L210 164L173 232L97 231L93 243L184 244L204 207L217 290H219L244 243L312 243Z"/>
+  <path fill="url(#cyan)" d="M214 339H359L389 290L277 291L276 288L287 257H251Z"/>
+</svg>
