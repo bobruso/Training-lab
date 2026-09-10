@@ -29,8 +29,9 @@ test('authenticated cold start, writes and logout isolation',async({page})=>{
  expect(await page.evaluate(()=>window.logSuggestedMeal('comida','rejected').then(()=>false,()=>true))).toBe(true);
  expect(await page.evaluate(()=>window.cloudMeals.length)).toBe(before);
  await expect(page.locator('#appError')).toBeVisible();
- await page.locator('nav [data-page="ajustes"]').click();await page.locator('#logoutBtn').click();await expect(page.locator('[data-auth=signin]')).toBeVisible();
+ await page.locator('nav [data-page="ajustes"]').click();await page.locator('#logoutBtn').click();
  await expect.poll(()=>page.evaluate(()=>window.TrainingLab.state.authenticated)).toBe(false);
+ await expect(page.locator('[data-auth=signin]')).toHaveCount(1);
  expect(errors).toEqual([]);
 });
 test.describe('PWA',()=>{
