@@ -1,4 +1,4 @@
-const CACHE='training-lab-20260910fitbridge82';
+const CACHE='training-lab-20260910iconfix83';
 const ASSETS=['./','./index.html','./app.js?v=20260910fitbridge82','./runtime.js?v=20260910fitbridge82','./styles.css?v=20260910fitbridge82','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
 // Runtime refresh: account controls moved from Home into Ajustes / Perfil.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
