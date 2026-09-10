@@ -12,10 +12,10 @@ test('password login persists in WebView, updates password and never sends OTP',
  if(url.pathname.endsWith('/user')){body=user;if(req.method()==='PUT'){updated=true;expect(req.postDataJSON().password).toBe('new-password-123');}}
  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
  });
- await page.goto('/');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);
+ await page.goto('/');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);await page.locator('nav [data-page="ajustes"]').click();
  await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('test-password-123');await page.locator('[data-auth=signin]').click();
  await expect(page.locator('#logoutBtn')).toBeVisible();
- await page.reload();await expect(page.locator('#logoutBtn')).toBeVisible();
+ await page.reload();await page.locator('nav [data-page="ajustes"]').click();await expect(page.locator('#logoutBtn')).toBeVisible();
  await page.locator('#authPassword').fill('new-password-123');await page.locator('[data-auth=update]').click();await expect.poll(()=>updated).toBe(true);expect(otp).toBe(0);await expect(page.locator('#authFeedback')).toContainText('Contraseña guardada');await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,150)));await expect(page.locator('#authFeedback')).toContainText('Contraseña guardada');
  expect(await page.evaluate(()=>localStorage.getItem('sb-nnpvklaxhomarxszlclt-auth-token'))).not.toContain('test-password');
 });
@@ -23,7 +23,7 @@ test('signup confirmation, recovery and rejected passwords have clear feedback',
  await page.route('https://nnpvklaxhomarxszlclt.supabase.co/**',r=>r.fulfill({status:200,contentType:'application/json',body:'{}'}));
  await page.route('**/auth/v1/signup*',r=>{expect(r.request().postDataJSON().password).toBe('test-password-123');return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(user)});});
  await page.route('**/auth/v1/token*',r=>r.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'invalid_credentials',message:'Invalid login credentials'})}));
- await page.goto('/');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);
+ await page.goto('/');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);await page.locator('nav [data-page="ajustes"]').click();
  await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('short');await page.locator('[data-auth=signup]').click();await expect(page.locator('#cloudDetail')).toContainText('8 caracteres');
  await page.locator('#authPassword').fill('test-password-123');await page.locator('[data-auth=signup]').click();await expect(page.locator('#cloudDetail')).toContainText('confirmar');
  await page.locator('#authPassword').fill('bad-password');await page.locator('[data-auth=signin]').click();await expect(page.locator('#cloudDetail')).toContainText('incorrectos');await expect(page.locator('#appError')).toContainText('Email o contraseña incorrectos');await expect(page.locator('#appError')).not.toContainText('HTTP 400');
