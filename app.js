@@ -274,7 +274,7 @@ window.consumeSharedFitFromAndroid=async function consumeSharedFitFromAndroid(){
  if(sharedFitImportRunning)return;
  if(!(window.TrainingLabAndroid&&typeof window.TrainingLabAndroid.consumeSharedFit==='function'))return;
  let raw='';
- try{raw=window.TrainingLabAndroid.consumeSharedFit()||'';}catch(e){window.TrainingLab.report('FIT compartido',e);return;}
+ try{raw=window.TrainingLabAndroid.consumeSharedFit()||'';}catch(e){const message=String(e?.message||e||'');if(message.includes('Error invoking consumeSharedFit')&&message.includes('Java exception was raised during method invocation'))return;window.TrainingLab.report('FIT compartido',e);return;}
  if(!raw)return;
  let payload;
  try{payload=JSON.parse(raw);}catch(e){window.TrainingLab.report('FIT compartido','Respuesta nativa no válida');return;}
