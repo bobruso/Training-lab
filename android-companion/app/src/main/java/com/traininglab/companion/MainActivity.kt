@@ -223,7 +223,9 @@ class MainActivity : ComponentActivity() {
     inner class WebBridge {
         @JavascriptInterface
         fun consumeSharedFit(): String {
-            if (!trusted(Uri.parse(webView.url ?: ""))) return ""
+            // JavascriptInterface methods run on WebView's bridge thread.
+            // Do not touch WebView from here: non-Training Lab main-frame URLs are
+            // already blocked/opened externally by WebViewClient.
             val payload = pendingSharedFit ?: return ""
             pendingSharedFit = null
             return payload
