@@ -1,0 +1,46 @@
+name: Fix shared FIT bridge v0.5
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-shared-fit-v05.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Apply shared FIT fix
+        run: python3 tools/patch_shared_fit_v05.py
+      - name: Validate web
+        run: npm ci && npm run check && node --test tests/*.test.mjs
+      - name: Validate Android
+        run: ./gradlew :app:assembleDebug :app:lintDebug --no-daemon
+        working-directory: android-companion
+      - uses: actions/upload-artifact@v4
+        with:
+          name: training-lab-android-v0.5
+          path: android-companion/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android-companion/app/src/main/java/com/traininglab/companion/MainActivity.kt android-companion/app/build.gradle.kts
+          git commit -m "Fix shared FIT bridge thread access" || exit 0
+          git push origin HEAD:main
