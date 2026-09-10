@@ -22,7 +22,7 @@
     try{return await fetch(input,{...options,signal:controller.signal});}
     finally{clearTimeout(timer);external?.removeEventListener('abort',abort);}
   }
-  window.TrainingLab={config,state,safe,report,request,update(values){Object.assign(state,values);render();}};
+  window.TrainingLab={config,state,safe,report,request,update(values){Object.assign(state,values);if(values?.authenticated===true&&state.lastError?.scope==='Acceso'){state.lastError=null;const error=document.getElementById('appError');if(error){error.hidden=true;error.textContent='';}}render();}};
   window.addEventListener('error',e=>report('Aplicación',e.error || 'No se pudo cargar un recurso. Recarga cuando tengas conexión.'));
   window.addEventListener('unhandledrejection',e=>report('Aplicación',e.reason));
   window.TrainingLab.authForm=(signedIn=false)=>`<input id="authEmail" aria-label="Email de acceso" autocomplete="email" required type="email" placeholder="tu@email.com" ${signedIn?'hidden':''}><input id="authPassword" aria-label="Contraseña" type="password" autocomplete="${signedIn?'new-password':'current-password'}" placeholder="${signedIn?'Nueva contraseña':'Contraseña'}"><div class="actions">${signedIn?'<button class="btn" data-auth="update">Guardar contraseña</button>':'<button class="btn" data-auth="signin">Entrar</button><button class="btn alt" data-auth="signup">Crear cuenta</button><button class="btn alt" data-auth="recover">Olvidé mi contraseña</button>'}</div>`;
