@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import FitParser from 'fit-file-parser';import {analyzeFootballSession} from '../supabase/functions/analyze-fit/analysis/football.js';
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import FitParser from 'fit-file-parser';import {analyzeFootballSession} from '../supabase/functions/analyze-fit/analysis/football.js';import {analyzeRunningSession} from '../supabase/functions/analyze-fit/analysis/running.js';import {buildBaseFitAnalysis} from '../supabase/functions/analyze-fit/analysis/base-analysis.js';import {makeReport} from '../supabase/functions/analyze-fit/analysis/generic-report.js';import {num,normalizeCoord,episodeCount,textValue,ts} from '../supabase/functions/analyze-fit/analysis/edge-common.js';import {makeStrengthReport,normalizeStrengthSets} from '../supabase/functions/analyze-fit/analysis/strength.js';import {persistFitAnalysis} from '../supabase/functions/analyze-fit/analysis/persist-analysis.js';
 function fixture(){
  const def=Buffer.from([0x40,0,0,20,0,4,253,4,0x86,5,4,0x86,6,2,0x84,3,1,2]);
  const records=[];
@@ -12,9 +12,9 @@ function edge({path='owner/test.fit',type='football',blob=fixture()}={}){
  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},storage:{from:()=>({download:async()=>({data:new Blob([blob])})})},from:table=>{
  const q={select(){return q;},eq(){return q;},single:async()=>({data:table==='fit_files'?{id:'fit',user_id:'owner',activity_id:'activity',storage_path:path}:{id:'activity',activity_type:type}}),maybeSingle:async()=>({data:{hr_max_bpm:190}}),update(row){writes.push({table,row});return q;},delete(){writes.push({table,delete:true});return q;},insert(row){writes.push({table,row});return q;},upsert(row){writes.push({table,row});return q;},then(resolve){return Promise.resolve({error:null}).then(resolve);}};return q;}};
  const source=readFileSync('supabase/functions/analyze-fit/index.ts','utf8').replace(/^import .*;\r?\n/gm,'').replace('export default handler;','');
- const context={Response,Request,TextDecoder,createClient:()=>client,FitParser,analyzeFootballSession,Deno:{env:{get:()=>''},serve:fn=>handler=fn}};
+ const context={Response,Request,TextDecoder,createClient:()=>client,FitParser,analyzeFootballSession,analyzeRunningSession,buildBaseFitAnalysis,makeReport,num,textValue,ts,makeStrengthReport,normalizeStrengthSets,persistFitAnalysis,Deno:{env:{get:()=>''},serve:fn=>handler=fn}};
  vm.runInNewContext(stripTypeScriptTypes(source),context);
- return {handler,writes,context};
+ return {handler,writes};
 }
 const req=()=>new Request('http://local',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify({fit_file_id:'fit'})});
 test('real synthetic FIT binary parses through the full handler with finite metrics',async()=>{
@@ -30,6 +30,6 @@ test('FIT strength without set messages does not invent sets',async()=>{
  const {handler,writes}=edge({type:'gym'});const r=await handler(req());const body=await r.json();assert.equal(body.summary.strengthSetCount,0);assert.ok(!writes.some(x=>x.table==='strength_sets'&&Array.isArray(x.row)));
 });
 test('FIT missing values remain null and recording gaps split sprints',()=>{
- const {context}=edge();assert.equal(context.num(null),null);assert.equal(context.normalizeCoord(undefined),null);
- assert.equal(context.episodeCount([{t:0,s:20},{t:1000,s:20},{t:60000,s:20},{t:61000,s:20}],18),0);
+ assert.equal(num(null),null);assert.equal(normalizeCoord(undefined),null);
+ assert.equal(episodeCount([{t:0,s:20},{t:1000,s:20},{t:60000,s:20},{t:61000,s:20}],18),0);
 });

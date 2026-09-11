@@ -1,0 +1,8 @@
+export function num(v){if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null}
+export function ts(v){if(!v)return null;if(v instanceof Date)return v.getTime();const n=new Date(String(v)).getTime();return Number.isFinite(n)?n:null}
+export function percentile(values,p){if(!values.length)return 0;const a=[...values].sort((x,y)=>x-y),idx=Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*p)));return a[idx]}
+export function avg(values){return values.length?values.reduce((a,b)=>a+b,0)/values.length:0}
+export function haversineM(a,b){if(a?.lat==null||a?.lon==null||b?.lat==null||b?.lon==null)return 0;const R=6371000,toRad=x=>x*Math.PI/180,dLat=toRad(b.lat-a.lat),dLon=toRad(b.lon-a.lon),x=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+export function normalizeCoord(v){const n=num(v);if(n==null)return null;return Math.abs(n)>180?n*(180/2147483648):n}
+export function episodeCount(points,cutoff,minSeconds=1.5){let count=0,start=null,last=null;for(const p of points){if(last!=null&&(p.t-last)>10000){if(start!=null&&(last-start)/1000>=minSeconds)count++;start=last=null}if(p.s>=cutoff){if(start==null)start=p.t;last=p.t}else if(start!=null&&last!=null){if((last-start)/1000>=minSeconds)count++;start=last=null}}if(start!=null&&last!=null&&(last-start)/1000>=minSeconds)count++;return count}
+export function textValue(v){if(v==null)return null;if(typeof v==='string')return v;if(typeof v==='number'||typeof v==='boolean')return String(v);if(typeof v==='object')for(const k of ['name','value','label','key'])if(v[k]!=null)return String(v[k]);return null}
