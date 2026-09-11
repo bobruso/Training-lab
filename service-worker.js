@@ -1,5 +1,5 @@
-const CACHE='training-lab-20260911insights86';
-const ASSETS=['./','./index.html','./app.js?v=20260911routes85','./route-map.js?v=20260911routes85','./activity-detail-enhancer.js?v=20260911insights86','./activity-insights.js?v=20260911insights86','./activity-charts.js?v=20260911insights86','./activity-insights.css?v=20260911insights86','./runtime.js?v=20260910authfix84','./styles.css?v=20260911routes85','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
+const CACHE='training-lab-20260911insights86fix';
+const ASSETS=['./','./index.html','./app.js?v=20260911insights86','./route-map.js?v=20260911insights86','./activity-detail-enhancer.js?v=20260911insights86','./activity-insights.js?v=20260911insights86','./activity-charts.js?v=20260911insights86','./activity-insights.css?v=20260911insights86','./runtime.js?v=20260910authfix84','./styles.css?v=20260911insights86','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
 // Runtime refresh: account controls moved from Home into Ajustes / Perfil.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
