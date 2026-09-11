@@ -134,14 +134,20 @@ class HealthConnectRichReader(private val client: HealthConnectClient) {
         val routeStatus = if (routeOverride != null) {
             addRoute(routeOverride, points, routePoints)
             "data"
-        } else when (val routeResult = session.exerciseRouteResult) {
-            is ExerciseRouteResult.Data -> {
-                addRoute(routeResult.exerciseRoute, points, routePoints)
-                "data"
+        } else {
+            val exactSession = runCatching {
+                client.readRecord(ExerciseSessionRecord::class, session.metadata.id).record
+            }.getOrNull()
+            val routeResult = exactSession?.exerciseRouteResult ?: session.exerciseRouteResult
+            when (routeResult) {
+                is ExerciseRouteResult.Data -> {
+                    addRoute(routeResult.exerciseRoute, points, routePoints)
+                    "data"
+                }
+                is ExerciseRouteResult.ConsentRequired -> "consent_required"
+                is ExerciseRouteResult.NoData -> "no_data"
+                else -> "unknown"
             }
-            is ExerciseRouteResult.ConsentRequired -> "consent_required"
-            is ExerciseRouteResult.NoData -> "no_data"
-            else -> "unknown"
         }
         capabilities.put("route", routeStatus).put("gps_samples", routePoints.size)
         capabilities.put("laps", session.laps.isNotEmpty()).put("lap_count", session.laps.size)
