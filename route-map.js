@@ -2,6 +2,7 @@ import './activity-detail-enhancer.js?v=20260911insights86';
 import './activity-sport-panels.js?v=20260911sports88';
 import './activity-fit-reanalysis.js?v=20260911sports89';
 import './activity-sport-comparisons.js?v=20260911sports90';
+import './sports-progress.js?v=20260911progress91';
 
 export const MAP_PROVIDER={
  tileSize:256,
