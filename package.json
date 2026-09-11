@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "release": "node scripts/release.mjs",
-    "check": "node --check app.js && node --check runtime.js && node --check service-worker.js && node --check route-map.js && node --check activity-insights.js && node --check activity-charts.js && node --check activity-detail-enhancer.js && node --check activity-sport-panels.js && node --check activity-fit-reanalysis.js && node --check activity-sport-comparisons.js && node --check sports-progress.js && node --check football-timeline.js && node --check personal-records.js && node --check activity-ab-compare.js && node --check trend-coach.js && node --check fit-enrichment.js && node --check health-connect-rich.js && node --check health-connect-settings.js",
+    "check": "node --check app.js && node --check runtime.js && node --check service-worker.js && node --check route-map.js && node --check activity-insights.js && node --check activity-charts.js && node --check activity-detail-enhancer.js && node --check activity-sport-panels.js && node --check activity-fit-reanalysis.js && node --check activity-sport-comparisons.js && node --check sports-progress.js && node --check football-timeline.js && node --check personal-records.js && node --check activity-ab-compare.js && node --check trend-coach.js && node --check fit-enrichment.js && node --check health-connect-rich.js && node --check health-connect-settings.js && node --check coros-design.js",
     "test": "playwright test"
   },
   "repository": {
