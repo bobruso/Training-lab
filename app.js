@@ -1,7 +1,7 @@
 import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910share80';
 import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910share80';
 import { createClient } from "./vendor/supabase.js?v=20260910share80";
-import {renderRouteMap} from './route-map.js?v=20260911routes85';
+import {renderRouteMap} from './route-map.js?v=20260911insights86';
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
