@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import FitParser from 'fit-file-parser';
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import FitParser from 'fit-file-parser';import {analyzeFootballSession} from '../supabase/functions/analyze-fit/analysis/football.js';
 function fixture(){
  const def=Buffer.from([0x40,0,0,20,0,4,253,4,0x86,5,4,0x86,6,2,0x84,3,1,2]);
  const records=[];
@@ -12,7 +12,7 @@ function edge({path='owner/test.fit',type='football',blob=fixture()}={}){
  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},storage:{from:()=>({download:async()=>({data:new Blob([blob])})})},from:table=>{
  const q={select(){return q;},eq(){return q;},single:async()=>({data:table==='fit_files'?{id:'fit',user_id:'owner',activity_id:'activity',storage_path:path}:{id:'activity',activity_type:type}}),maybeSingle:async()=>({data:{hr_max_bpm:190}}),update(row){writes.push({table,row});return q;},delete(){writes.push({table,delete:true});return q;},insert(row){writes.push({table,row});return q;},upsert(row){writes.push({table,row});return q;},then(resolve){return Promise.resolve({error:null}).then(resolve);}};return q;}};
  const source=readFileSync('supabase/functions/analyze-fit/index.ts','utf8').replace(/^import .*;\r?\n/gm,'').replace('export default handler;','');
- const context={Response,Request,TextDecoder,createClient:()=>client,FitParser,Deno:{env:{get:()=>''},serve:fn=>handler=fn}};
+ const context={Response,Request,TextDecoder,createClient:()=>client,FitParser,analyzeFootballSession,Deno:{env:{get:()=>''},serve:fn=>handler=fn}};
  vm.runInNewContext(stripTypeScriptTypes(source),context);
  return {handler,writes,context};
 }
