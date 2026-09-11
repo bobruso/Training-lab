@@ -6,8 +6,24 @@ line='import { analyzeFootballSession } from "./analysis/football.js";\n'
 if line not in text:
     if needle not in text: raise SystemExit('import anchor not found')
     text=text.replace(needle,needle+line,1)
+
+# Make the already-filtered FIT point timestamps explicit numbers so Deno can
+# prove the arithmetic below is safe. This does not change runtime semantics.
+old='''      }).filter((p: any) => p.t != null).sort((a: any,b: any)=>a.t-b.t);'''
+new='''      }).filter((p: any) => p.t != null).map((p:any)=>({...p,t:Number(p.t)})).sort((a: any,b: any)=>a.t-b.t);'''
+if old not in text: raise SystemExit('point timestamp anchor not found')
+text=text.replace(old,new,1)
+
+# Avoid Array.at() optionality in places guarded by length and force the fallback
+# distance expression to a concrete number for strict type checking.
+text=text.replace('pts.at(-1).t-a.t','pts[pts.length-1].t-a.t')
+text=text.replace('(pts.at(-1).t-pts[0].t)/1000','(pts[pts.length-1].t-pts[0].t)/1000')
+old='''      const distanceKm = num(session.total_distance) ?? (pts.length && pts.at(-1).distanceKm!=null ? pts.at(-1).distanceKm : 0);'''
+new='''      const distanceKm: number = num(session.total_distance) ?? (pts.length && pts[pts.length-1].distanceKm!=null ? Number(pts[pts.length-1].distanceKm) : 0);'''
+if old not in text: raise SystemExit('distance anchor not found')
+text=text.replace(old,new,1)
+
 old='''      const report = activityType === "gym"\n        ? makeStrengthReport(summary)\n        : makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});\n      if(activityType!='gym')report.analysis+=` ${sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;\n'''
-# source uses !==; support exact actual block separately
 old=old.replace("activityType!='gym'","activityType!=='gym'")
 new='''      let footballDeep:any = null;\n      if(activityType==="football" && pts.length){\n        footballDeep = analyzeFootballSession(pts, summary);\n        if(footballDeep?.summaryPatch)Object.assign(summary, footballDeep.summaryPatch);\n      }\n      const report = activityType === "gym"\n        ? makeStrengthReport(summary)\n        : footballDeep?.report || makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});\n      if(activityType!=='gym' && !footballDeep)report.analysis+=` ${sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;\n'''
 if old not in text: raise SystemExit('report block anchor not found')
