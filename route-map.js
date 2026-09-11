@@ -1,5 +1,6 @@
 import './activity-detail-enhancer.js?v=20260911insights86';
 import './activity-sport-panels.js?v=20260911sports88';
+import './activity-fit-reanalysis.js?v=20260911sports89';
 
 export const MAP_PROVIDER={
  tileSize:256,
