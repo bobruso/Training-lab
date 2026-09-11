@@ -9,6 +9,7 @@ const cors={
 const json=(body:any,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 const clamp=(v:any,min:number,max:number)=>Math.max(min,Math.min(max,Number(v)||0));
 const clean=(v:any,max=500)=>String(v??'').trim().slice(0,max);
+const fold=(v:any)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const AREAS=['cabeza','cuello','hombro','pecho','espalda','core','cadera','gluteo','ingle','aductor','cuadriceps','isquios','rodilla','gemelo','tobillo','pie','brazo','codo','muneca','mano','general'];
 const schema={type:'object',additionalProperties:false,properties:{
  summary:{type:'string'},energy:{type:'integer',minimum:1,maximum:5},fatigue:{type:'integer',minimum:1,maximum:5},mood:{type:'integer',minimum:1,maximum:5},soreness:{type:'integer',minimum:1,maximum:5},
@@ -17,12 +18,12 @@ const schema={type:'object',additionalProperties:false,properties:{
 },required:['summary','energy','fatigue','mood','soreness','body_areas','red_flags','advice','training_adjustment']};
 
 function localFallback(note:string){
- const n=note.toLowerCase();let fatigue=3,energy=3,mood=3,soreness=2;
- if(/agotad|reventad|muy cansad|sin energia|sin energía/.test(n)){fatigue=5;energy=1}else if(/cansad|fatiga|pesad/.test(n)){fatigue=4;energy=2}else if(/fresco|con energia|con energía|muy bien/.test(n)){fatigue=2;energy=4}
+ const n=fold(note);let fatigue=3,energy=3,mood=3,soreness=2;
+ if(/agotad|reventad|muy cansad|sin energia/.test(n)){fatigue=5;energy=1}else if(/cansad|fatiga|pesad/.test(n)){fatigue=4;energy=2}else if(/fresco|con energia|muy bien/.test(n)){fatigue=2;energy=4}
  if(/dolor|molest|tirantez|cargad|agujeta/.test(n))soreness=4;if(/mucho dolor|dolor fuerte|no puedo apoyar|deformidad|hormigueo persistente/.test(n))soreness=5;
- if(/animado|buen humor|motivad/.test(n))mood=4;if(/estresad|mal dia|mal día|bajon|bajón/.test(n))mood=2;
- const body_areas:any[]=[];for(const area of AREAS)if(area!=='general'&&n.includes(area.replace('cuadriceps','cuádriceps').normalize('NFD').replace(/[\u0300-\u036f]/g,'')))body_areas.push({area,side:/izquierd/.test(n)?'izquierdo':/derech/.test(n)?'derecho':'no_especificado',severity:soreness});
- const red_flags=[];if(/no puedo apoyar|deformidad|hormigueo persistente|perdida de sensibilidad|pérdida de sensibilidad|dolor insoportable/.test(n))red_flags.push('La nota contiene una señal que merece valoración sanitaria.');
+ if(/animado|buen humor|motivad/.test(n))mood=4;if(/estresad|mal dia|bajon/.test(n))mood=2;
+ const body_areas:any[]=[];for(const area of AREAS)if(area!=='general'&&n.includes(area))body_areas.push({area,side:/izquierd/.test(n)?'izquierdo':/derech/.test(n)?'derecho':'no_especificado',severity:soreness});
+ const red_flags=[];if(/no puedo apoyar|deformidad|hormigueo persistente|perdida de sensibilidad|dolor insoportable/.test(n))red_flags.push('La nota contiene una señal que merece valoración sanitaria.');
  const adjustment=red_flags.length?'valoracion_profesional':fatigue>=5||soreness>=5?'descanso':fatigue>=4||soreness>=4?'recuperacion':'normal';
  return{summary:clean(note,220),energy,fatigue,mood,soreness,body_areas,red_flags,advice:red_flags.length?['No fuerces la zona y busca valoración sanitaria si la señal continúa o empeora.']:['Ajusta la carga según sensaciones reales y evolución durante el día.'],training_adjustment:adjustment,analysis_source:'rules'};
 }
@@ -45,7 +46,7 @@ Deno.serve(async req=>{
   const prompt=`Analiza esta nota breve de bienestar de una persona que entrena fútbol, running, ciclismo y fuerza. No diagnostiques enfermedades ni lesiones. Convierte la nota en un resumen útil para ajustar entrenamiento y recuperación. Escalas: energy 1=muy baja,5=muy alta; fatigue 1=muy fresco,5=muy fatigado; mood 1=muy bajo,5=muy bueno; soreness 1=sin molestias,5=muy cargado/doloroso. Extrae solo zonas corporales realmente mencionadas. Si aparecen señales como incapacidad para apoyar, deformidad, traumatismo importante, pérdida de sensibilidad, debilidad marcada, hinchazón importante o empeoramiento rápido, añádelas a red_flags y recomienda valoración profesional. No inventes síntomas. Nota: ${note}`;
   try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:.1,responseMimeType:'application/json',responseJsonSchema:schema}})});if(r.ok){const p=await r.json(),text=p?.candidates?.[0]?.content?.parts?.map((x:any)=>x?.text||'').join('').trim();if(text)analysis=normalize(JSON.parse(text.replace(/^```json\s*/i,'').replace(/```$/,'')))}}catch(e){console.error('state note gemini fallback',String(e))}
  }
- const today=new Date().toISOString().slice(0,10);const answers={state_analysis:analysis,source:'mi_estado'};const row={user_id:user.id,checkin_date:today,energy:analysis.energy,soreness:analysis.soreness,mood:analysis.mood,notes:note,answers,updated_at:new Date().toISOString()};
+ const today=new Date().toISOString().slice(0,10);const answers={state_analysis:analysis,source:'mi_estado'};const row={user_id:user.id,checkin_date:today,energy:analysis.energy,soreness:analysis.soreness,mood:analysis.mood,notes:note,answers};
  const {error}=await client.from('daily_checkins').upsert(row,{onConflict:'user_id,checkin_date'});if(error){console.error('state note save',error.message);return json({error:'No se pudo guardar tu estado.'},400)}
  await client.from('daily_status').upsert({user_id:user.id,day:today,fatigue:analysis.fatigue,notes:note,updated_at:new Date().toISOString()},{onConflict:'user_id,day'});
  return json({ok:true,analysis});
