@@ -10,6 +10,7 @@ import './trend-coach.js?v=20260911coach95';
 import './fit-enrichment.js?v=20260911fit97';
 import './health-connect-rich.js?v=20260911health98';
 import './health-connect-settings.js?v=20260911health100';
+import './coros-design.js?v=20260911coros101';
 
 export const MAP_PROVIDER={tileSize:256,maxZoom:19,attribution:'© OpenStreetMap',tileUrl(z,x,y){return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`}};
 const MAX_LAT=85.05112878;
