@@ -2,13 +2,17 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTES" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
     <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_SPEED" />
+    <uses-permission android:name="android.permission.health.READ_ELEVATION_GAINED" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_POWER" />
 
-    <!-- Android 13 y anteriores: detectar la app Health Connect. -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
@@ -28,7 +32,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Recibir archivos FIT compartidos desde COROS y otras apps deportivas. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -37,7 +40,6 @@
                 <data android:mimeType="application/x-fit" />
                 <data android:mimeType="application/fit" />
             </intent-filter>
-            <!-- Magic-link de Supabase: vuelve al companion en vez de quedarse en Chrome. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -46,7 +48,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Health Connect exige una pantalla que explique el uso de los datos. -->
         <activity
             android:name=".PermissionsRationaleActivity"
             android:exported="true">
