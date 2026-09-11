@@ -3,6 +3,7 @@ import './activity-sport-panels.js?v=20260911sports88';
 import './activity-fit-reanalysis.js?v=20260911sports89';
 import './activity-sport-comparisons.js?v=20260911sports90';
 import './sports-progress.js?v=20260911progress91';
+import './football-timeline.js?v=20260911football92';
 
 export const MAP_PROVIDER={
  tileSize:256,
