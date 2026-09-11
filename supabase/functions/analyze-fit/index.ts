@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import FitParser from "fit-file-parser";
+import { analyzeFootballSession } from "./analysis/football.js";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -235,7 +236,7 @@ const handler = {
         const lat = normalizeCoord(r.position_lat);
         const lon = normalizeCoord(r.position_long);
         return { t: time, speed, distanceKm, hr: num(r.heart_rate), lat, lon, altitudeKm: num(r.enhanced_altitude ?? r.altitude) };
-      }).filter((p: any) => p.t != null).sort((a: any,b: any)=>a.t-b.t);
+      }).filter((p: any) => p.t != null).map((p:any)=>({...p,t:Number(p.t)})).sort((a: any,b: any)=>a.t-b.t);
 
       const speeds = pts.map((p:any)=>p.speed).filter((v:number)=>Number.isFinite(v) && v >= 0 && v < 80);
       const rawTop = speeds.length ? Math.max(...speeds) : (num(session.max_speed) ?? 0);
@@ -271,7 +272,7 @@ const handler = {
         if (b.speed > .5) movingSec += dt;
         if (b.speed >= 13) highIntensityM += dm;
         if ((b.t-pts[0].t) <= 600000) first10MinM += dm;
-        if ((pts.at(-1).t-a.t) <= 600000) last10MinM += dm;
+        if ((pts[pts.length-1].t-a.t) <= 600000) last10MinM += dm;
         const z=speedZones.find((x:any)=>b.speed>=x.min && b.speed<x.max); if(z){z.seconds+=dt;z.distance_m+=dm;}
         if (b.hr!=null) {
           const zi=Math.min(4,Math.max(0,Math.floor((b.hr/refMaxHr-.5)/.1)));
@@ -281,9 +282,9 @@ const handler = {
         if(a.altitudeKm!=null && b.altitudeKm!=null){const gain=(b.altitudeKm-a.altitudeKm)*1000;if(gain>0&&gain<30)elevationGainM+=gain;}
       }
 
-      const totalDurationSec = num(session.total_elapsed_time ?? session.total_timer_time) ?? (pts.length>1 ? (pts.at(-1).t-pts[0].t)/1000 : 0);
+      const totalDurationSec = num(session.total_elapsed_time ?? session.total_timer_time) ?? (pts.length>1 ? (pts[pts.length-1].t-pts[0].t)/1000 : 0);
       if(!pts.length)movingSec=num(session.total_timer_time)??0;
-      const distanceKm = num(session.total_distance) ?? (pts.length && pts.at(-1).distanceKm!=null ? pts.at(-1).distanceKm : 0);
+      const distanceKm: number = num(session.total_distance) ?? (pts.length && pts[pts.length-1].distanceKm!=null ? Number(pts[pts.length-1].distanceKm) : 0);
       const avgHr = Math.round(num(session.avg_heart_rate) ?? avg(hrValues));
       const maxHr = Math.round(recordedMaxHr ?? 0);
       const calories = Math.round(num(session.total_calories) ?? 0);
@@ -311,10 +312,15 @@ const handler = {
         metersPerMovingMin:+metersPerMovingMin.toFixed(1), accelerations:accelCount, decelerations:decelCount, first10MinM:totalDurationSec>=600?+first10MinM.toFixed(1):null, last10MinM:totalDurationSec>=600?+last10MinM.toFixed(1):null, elevationGainM:+elevationGainM.toFixed(1), referenceMaxHr:Math.round(refMaxHr), hrZoneReference:configuredMax?'profile':'estimated',
         hrZone45Share:+hrZone45Share.toFixed(4), parser:"fit-file-parser@5.0.2"
       };
+      let footballDeep:any = null;
+      if(activityType==="football" && pts.length){
+        footballDeep = analyzeFootballSession(pts, summary);
+        if(footballDeep?.summaryPatch)Object.assign(summary, footballDeep.summaryPatch);
+      }
       const report = activityType === "gym"
         ? makeStrengthReport(summary)
-        : makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});
-      if(activityType!=='gym')report.analysis+=` ${sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;
+        : footballDeep?.report || makeReport({...summary,distanceKm,movingTimeSec:movingSec,avgHr,maxHr,highIntensityM,highIntensityShare,metersPerMovingMin,hrZone45Share,first10MinM});
+      if(activityType!=='gym' && !footballDeep)report.analysis+=` ${sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;
       if(!pts.length){
         Object.assign(summary,{rawTopKmh:null,robustTopKmh:null,p99TopKmh:null,sprintCount:null,absoluteSprintCount:null,highIntensityM:null,highIntensityShare:null,accelerations:null,decelerations:null,first10MinM:null,last10MinM:null,hrZone45Share:null});
         if(activityType!=='gym')report.analysis='El archivo incluye métricas de sesión, pero no muestras temporales. No se pueden calcular zonas, sprints ni distribución del esfuerzo.';
@@ -326,7 +332,7 @@ const handler = {
       const { error: actError } = await supabase.from("activities").update({
         activity_date:activityDate, started_at:startedAt, duration_min:+(totalDurationSec/60).toFixed(2), moving_time_min:+(movingSec/60).toFixed(2),
         distance_km:+distanceKm.toFixed(3), avg_hr:avgHr||null, max_hr:maxHr||null, calories:calories||null,
-        top_speed_kmh:+rawTop.toFixed(2), high_intensity_m:+highIntensityM.toFixed(1), sprint_count:sprintCount, absolute_sprint_count:absoluteSprintCount,
+        top_speed_kmh:+rawTop.toFixed(2), high_intensity_m:+highIntensityM.toFixed(1), sprint_count:summary.sprintCount, absolute_sprint_count:summary.absoluteSprintCount,
         avg_pace_sec_km:avgPaceSecKm, elevation_gain_m:+elevationGainM.toFixed(1), metrics:summary
       }).eq("id",fitRow.activity_id);
       if(actError) throw new Error(actError.message);
@@ -365,11 +371,11 @@ const handler = {
       }
 
       const { error: analysisError } = await supabase.from("activity_analysis").upsert({
-        activity_id:fitRow.activity_id,user_id:userId,analysis_version:"fit-v2",summary,hr_zones:hrZones,speed_zones:speedZones,track_points:trackPoints,report,sample_count:pts.length,analyzed_at:new Date().toISOString(),updated_at:new Date().toISOString()
+        activity_id:fitRow.activity_id,user_id:userId,analysis_version:activityType==="football"&&footballDeep?"fit-v4-football-v1":"fit-v2",summary,hr_zones:hrZones,speed_zones:speedZones,track_points:trackPoints,report,sample_count:pts.length,analyzed_at:new Date().toISOString(),updated_at:new Date().toISOString()
       },{onConflict:"activity_id"});
       if(analysisError) throw new Error(analysisError.message);
 
-      const {error:finishError}=await supabase.from("fit_files").update({parser_version:"fit-v3 / fit-file-parser@5.0.2",parse_status:"parsed",parse_error:null,analyzed_at:new Date().toISOString(),analysis_activity_id:fitRow.activity_id}).eq("id",fitFileId);
+      const {error:finishError}=await supabase.from("fit_files").update({parser_version:"fit-v4 / fit-file-parser@5.0.2",parse_status:"parsed",parse_error:null,analyzed_at:new Date().toISOString(),analysis_activity_id:fitRow.activity_id}).eq("id",fitFileId);
       if(finishError)throw new Error(finishError.message);
 
       return json({ ok:true, activity_id:fitRow.activity_id, summary, report, track_points:trackPoints.length, strength_sets:strengthSets.length });
