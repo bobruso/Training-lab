@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {analyzeFutsalSession} from '../supabase/functions/analyze-fit/analysis/futsal.js';
+function makeFutsal(minutes=48){const pts=[],start=Date.UTC(2026,8,10,20,13,15);let distance=0;for(let t=0;t<=minutes*60;t++){const burst=t%45<5,walk=t%90>75,speed=walk?4:burst?19:9.5+Math.sin(t/20)*2.5;distance+=speed/3600;pts.push({t:start+t*1000,speed,distanceKm:distance,hr:135+Math.round(25*Math.min(1,t/(minutes*60))),lat:39.47+t*1e-7,lon:-.38+t*1e-7})}return pts}
+test('futsal report emphasizes repeated short efforts',()=>{const pts=makeFutsal(),r=analyzeFutsalSession(pts,{durationSec:48*60,movingTimeSec:46*60,distanceKm:pts.at(-1).distanceKm,metersPerMovingMin:95});assert.equal(r.summaryPatch.futsalAnalysisVersion,'futsal-v1');assert.equal(r.report.sport,'futsal');assert.ok(r.summaryPatch.futsalHighIntensityRunCount>0);assert.ok(r.report.sections.pico_5_min.distancia_m>0);assert.match(r.report.analysis,/fútbol sala/i)});
+test('futsal short data fails gracefully',()=>{const r=analyzeFutsalSession([{t:1,speed:3}],{durationSec:30});assert.equal(r.report,null);assert.equal(r.summaryPatch.futsalAnalysisVersion,'futsal-v1')});
