@@ -4,6 +4,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.CyclingPedalingCadenceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
+import androidx.health.connect.client.records.ExerciseRoute
 import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -33,8 +34,6 @@ class HealthConnectRichReader(private val client: HealthConnectClient) {
         var lat: Double? = null,
         var lon: Double? = null,
         var altitudeM: Double? = null,
-        var horizontalAccuracyM: Double? = null,
-        var verticalAccuracyM: Double? = null,
         var speedKmh: Double? = null,
         var hr: Double? = null,
         var cadenceSpm: Double? = null,
@@ -43,12 +42,10 @@ class HealthConnectRichReader(private val client: HealthConnectClient) {
     )
 
     private fun key(time: Instant): Long = time.toEpochMilli() / 1000L
-
     private fun point(points: TreeMap<Long, Point>, time: Instant): Point {
         val second = key(time)
         return points.getOrPut(second) { Point(second * 1000L) }
     }
-
     private fun sameOrigin(packageName: String, recordPackageName: String): Boolean =
         packageName.isNotBlank() && packageName == recordPackageName
 
@@ -64,7 +61,23 @@ class HealthConnectRichReader(private val client: HealthConnectClient) {
         return out
     }
 
-    suspend fun read(session: ExerciseSessionRecord): JSONObject {
+    private fun addRoute(route: ExerciseRoute, points: TreeMap<Long, Point>, routePoints: MutableList<JSONObject>) {
+        route.route.sortedBy { it.time }.forEach { loc ->
+            val p = point(points, loc.time)
+            p.lat = loc.latitude
+            p.lon = loc.longitude
+            p.altitudeM = loc.altitude?.inMeters
+            routePoints += JSONObject()
+                .put("t", loc.time.toEpochMilli())
+                .put("lat", loc.latitude)
+                .put("lon", loc.longitude)
+                .also { if (loc.altitude != null) it.put("altitude_m", loc.altitude!!.inMeters) }
+                .also { if (loc.horizontalAccuracy != null) it.put("horizontal_accuracy_m", loc.horizontalAccuracy!!.inMeters) }
+                .also { if (loc.verticalAccuracy != null) it.put("vertical_accuracy_m", loc.verticalAccuracy!!.inMeters) }
+        }
+    }
+
+    suspend fun read(session: ExerciseSessionRecord, routeOverride: ExerciseRoute? = null): JSONObject {
         val origin = session.metadata.dataOrigin.packageName
         val range = TimeRangeFilter.between(session.startTime, session.endTime)
         val points = TreeMap<Long, Point>()
@@ -118,23 +131,12 @@ class HealthConnectRichReader(private val client: HealthConnectClient) {
         capabilities.put("elevation", elevationRecords.isNotEmpty())
 
         val routePoints = mutableListOf<JSONObject>()
-        val routeStatus = when (val routeResult = session.exerciseRouteResult) {
+        val routeStatus = if (routeOverride != null) {
+            addRoute(routeOverride, points, routePoints)
+            "data"
+        } else when (val routeResult = session.exerciseRouteResult) {
             is ExerciseRouteResult.Data -> {
-                routeResult.exerciseRoute.route.sortedBy { it.time }.forEach { loc ->
-                    val p = point(points, loc.time)
-                    p.lat = loc.latitude
-                    p.lon = loc.longitude
-                    p.altitudeM = loc.altitude?.inMeters
-                    p.horizontalAccuracyM = loc.horizontalAccuracy?.inMeters
-                    p.verticalAccuracyM = loc.verticalAccuracy?.inMeters
-                    routePoints += JSONObject()
-                        .put("t", loc.time.toEpochMilli())
-                        .put("lat", loc.latitude)
-                        .put("lon", loc.longitude)
-                        .also { if (loc.altitude != null) it.put("altitude_m", loc.altitude!!.inMeters) }
-                        .also { if (loc.horizontalAccuracy != null) it.put("horizontal_accuracy_m", loc.horizontalAccuracy!!.inMeters) }
-                        .also { if (loc.verticalAccuracy != null) it.put("vertical_accuracy_m", loc.verticalAccuracy!!.inMeters) }
-                }
+                addRoute(routeResult.exerciseRoute, points, routePoints)
                 "data"
             }
             is ExerciseRouteResult.ConsentRequired -> "consent_required"
