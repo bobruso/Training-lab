@@ -1,3 +1,5 @@
+import './activity-detail-enhancer.js?v=20260911insights86';
+
 export const MAP_PROVIDER={
  tileSize:256,
  maxZoom:19,
