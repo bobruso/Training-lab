@@ -6,26 +6,15 @@ import './sports-progress.js?v=20260911progress91';
 import './football-timeline.js?v=20260911football92';
 import './personal-records.js?v=20260911records93';
 import './activity-ab-compare.js?v=20260911compare94';
+import './trend-coach.js?v=20260911coach95';
 
-export const MAP_PROVIDER={
- tileSize:256,
- maxZoom:19,
- attribution:'© OpenStreetMap',
- tileUrl(z,x,y){return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`}
-};
-
+export const MAP_PROVIDER={tileSize:256,maxZoom:19,attribution:'© OpenStreetMap',tileUrl(z,x,y){return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`}};
 const MAX_LAT=85.05112878;
-
-export function projectWebMercator(lat,lon){
- const safeLat=Math.max(-MAX_LAT,Math.min(MAX_LAT,Number(lat)));
- const latRad=safeLat*Math.PI/180;
- return {x:(Number(lon)+180)/360,y:(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2};
-}
-
+export function projectWebMercator(lat,lon){const safeLat=Math.max(-MAX_LAT,Math.min(MAX_LAT,Number(lat))),latRad=safeLat*Math.PI/180;return{x:(Number(lon)+180)/360,y:(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2}}
 function validTrack(trackPoints){return(Array.isArray(trackPoints)?trackPoints:[]).map(point=>({lat:Number(point?.lat),lon:Number(point?.lon)})).filter(point=>Number.isFinite(point.lat)&&Number.isFinite(point.lon))}
 function projectedTrack(trackPoints){const projected=validTrack(trackPoints).map(point=>projectWebMercator(point.lat,point.lon));if(!projected.length)return projected;for(let i=1;i<projected.length;i++){while(projected[i].x-projected[i-1].x>.5)projected[i].x-=1;while(projected[i].x-projected[i-1].x<-.5)projected[i].x+=1}return projected}
 export function routeViewport(trackPoints,width,height,padding=.14){const points=projectedTrack(trackPoints);if(points.length<2)return null;const xs=points.map(point=>point.x),ys=points.map(point=>point.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),usableWidth=Math.max(1,width*(1-padding*2)),usableHeight=Math.max(1,height*(1-padding*2));let zoom=MAP_PROVIDER.maxZoom;while(zoom>1){const worldSize=MAP_PROVIDER.tileSize*2**zoom;if((maxX-minX)*worldSize<=usableWidth&&(maxY-minY)*worldSize<=usableHeight)break;zoom--}return{points,zoom,centerX:(minX+maxX)/2,centerY:(minY+maxY)/2}}
-function svgElement(name,attributes={}){const element=document.createElementNS('http://www.w3.org/2000/svg',name);for(const [key,value] of Object.entries(attributes))element.setAttribute(key,String(value));return element}
+function svgElement(name,attributes={}){const element=document.createElementNS('http://www.w3.org/2000/svg',name);for(const[key,value]of Object.entries(attributes))element.setAttribute(key,String(value));return element}
 export function renderRouteMap(container,trackPoints,{large=false}={}){if(!container)return false;const width=Math.max(1,Math.round(container.clientWidth||container.getBoundingClientRect?.().width||(large?720:280))),height=Math.max(1,Math.round(container.clientHeight||container.getBoundingClientRect?.().height||(large?405:168))),viewport=routeViewport(trackPoints,width,height);if(!viewport)return false;const worldSize=MAP_PROVIDER.tileSize*2**viewport.zoom,centerPx={x:viewport.centerX*worldSize,y:viewport.centerY*worldSize},left=centerPx.x-width/2,top=centerPx.y-height/2,tiles=document.createElement('div');tiles.className='route-map-tiles';tiles.setAttribute('aria-hidden','true');const tileMinX=Math.floor(left/MAP_PROVIDER.tileSize),tileMaxX=Math.floor((left+width)/MAP_PROVIDER.tileSize),tileMinY=Math.max(0,Math.floor(top/MAP_PROVIDER.tileSize)),tileMaxY=Math.min(2**viewport.zoom-1,Math.floor((top+height)/MAP_PROVIDER.tileSize)),tileWorld=2**viewport.zoom;for(let y=tileMinY;y<=tileMaxY;y++)for(let x=tileMinX;x<=tileMaxX;x++){const img=document.createElement('img'),wrappedX=((x%tileWorld)+tileWorld)%tileWorld;img.src=MAP_PROVIDER.tileUrl(viewport.zoom,wrappedX,y);img.alt='';img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';img.style.left=`${x*MAP_PROVIDER.tileSize-left}px`;img.style.top=`${y*MAP_PROVIDER.tileSize-top}px`;img.addEventListener('error',()=>{img.hidden=true},{once:true});tiles.append(img)}const svg=svgElement('svg',{class:'route-map-overlay',viewBox:`0 0 ${width} ${height}`,'aria-hidden':'true'}),pixels=viewport.points.map(point=>({x:point.x*worldSize-left,y:point.y*worldSize-top})),path=pixels.map((point,index)=>`${index?'L':'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');svg.append(svgElement('path',{class:'route-map-glow',d:path}),svgElement('path',{class:'route-map-line',d:path}));const start=pixels[0],end=pixels.at(-1);svg.append(svgElement('circle',{class:'route-map-start',cx:start.x,cy:start.y,r:large?5:4}),svgElement('circle',{class:'route-map-end',cx:end.x,cy:end.y,r:large?5:4}));const attribution=document.createElement('span');attribution.className='route-map-attribution';attribution.textContent=MAP_PROVIDER.attribution;container.replaceChildren(tiles,svg,attribution);container.dataset.routeState='map';return true}
 function ensureFitSportOptions(){const select=document.getElementById('fitType');if(!select||select.querySelector('option[value="cycling"]'))return;const option=document.createElement('option');option.value='cycling';option.textContent='Ciclismo';const gym=select.querySelector('option[value="gym"]');select.insertBefore(option,gym||null)}
 if(typeof document!=='undefined'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureFitSportOptions,{once:true});else queueMicrotask(ensureFitSportOptions)}
