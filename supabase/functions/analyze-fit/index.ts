@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import FitParser from "fit-file-parser";
 import { analyzeFootballSession } from "./analysis/football.js";
 import { analyzeRunningSession } from "./analysis/running.js";
+import { analyzeCyclingSession } from "./analysis/cycling.js";
 import { buildBaseFitAnalysis } from "./analysis/base-analysis.js";
 import { makeReport } from "./analysis/generic-report.js";
 import { num, textValue, ts } from "./analysis/edge-common.js";
@@ -29,11 +30,12 @@ const handler={async fetch(req:Request){
    const summary:any={activityType,fitSport,fitSubSport,strengthSetCount:strengthSets.length,totalReps,totalVolumeKg:+totalVolumeKg.toFixed(1),exercises:exerciseNames,...base.summary};
    let footballDeep:any=null;if(activityType==='football'&&pts.length){footballDeep=analyzeFootballSession(pts,summary);if(footballDeep?.summaryPatch)Object.assign(summary,footballDeep.summaryPatch)}
    let runningDeep:any=null;if(activityType==='run'&&pts.length){runningDeep=analyzeRunningSession(pts,summary);if(runningDeep?.summaryPatch)Object.assign(summary,runningDeep.summaryPatch)}
-   const report=activityType==='gym'?makeStrengthReport(summary):footballDeep?.report||runningDeep?.report||makeReport(summary);
-   if(activityType!=='gym'&&!footballDeep&&!runningDeep&&pts.length)report.analysis+=` ${summary.sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${summary.absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;
+   let cyclingDeep:any=null;if(activityType==='cycling'&&pts.length){cyclingDeep=analyzeCyclingSession(pts,summary,session);if(cyclingDeep?.summaryPatch)Object.assign(summary,cyclingDeep.summaryPatch)}
+   const report=activityType==='gym'?makeStrengthReport(summary):footballDeep?.report||runningDeep?.report||cyclingDeep?.report||makeReport(summary);
+   if(activityType!=='gym'&&!footballDeep&&!runningDeep&&!cyclingDeep&&pts.length)report.analysis+=` ${summary.sprintCount} esfuerzos de sprint detectados por el modelo relativo; ${summary.absoluteSprintCount} superaron 18 km/h. Zonas FC ${configuredMax?'basadas en tu FC máxima configurada':'estimadas; configura tu FC máxima para compararlas'}.`;
    if(!pts.length&&activityType!=='gym')report.analysis='El archivo incluye métricas de sesión, pero no muestras temporales. No se pueden calcular zonas, sprints ni distribución del esfuerzo.';
-   const startMs=pts[0]?.t??ts(session.start_time??session.timestamp),startedAt=startMs?new Date(startMs).toISOString():null,activityDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(startedAt||Date.now())),analysisVersion=footballDeep?'fit-v4-football-v1':runningDeep?'fit-v5-running-v1':'fit-v2';
-   await persistFitAnalysis({supabase,userId,fitFileId,activityId:fitRow.activity_id,activityType,startedAt,activityDate,totalDurationSec:Number(summary.durationSec||0),distanceKm:Number(summary.distanceKm||0),avgHr:Number(summary.avgHr||0),maxHr:Number(summary.maxHr||0),calories:Number(summary.calories||0),rawTop:Number(summary.rawTopKmh||0),highIntensityM:Number(summary.highIntensityM||0),summary,report,hrZones,speedZones,trackPoints,sampleCount:pts.length,strengthSets,analysisVersion});
+   const startMs=pts[0]?.t??ts(session.start_time??session.timestamp),startedAt=startMs?new Date(startMs).toISOString():null,activityDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(startedAt||Date.now())),analysisVersion=footballDeep?'fit-v4-football-v1':runningDeep?'fit-v5-running-v1':cyclingDeep?'fit-v6-cycling-v1':'fit-v2';
+   await persistFitAnalysis({supabase,userId,fitFileId,activityId:fitRow.activity_id,activityType,startedAt,activityDate,totalDurationSec:Number(summary.durationSec||0),distanceKm:Number(summary.distanceKm||0),avgHr:Number(summary.avgHr||0),maxHr:Number(summary.maxHr||0),calories:Number(summary.calories||0),rawTop:Number(summary.rawTopKmh||0),highIntensityM:Number(summary.highIntensityM||0),summary,report,hrZones,speedZones,trackPoints,sampleCount:pts.length,strengthSets,analysisVersion,parserVersion:'fit-v6 / fit-file-parser@5.0.2'});
    return json({ok:true,activity_id:fitRow.activity_id,summary,report,track_points:trackPoints.length,strength_sets:strengthSets.length});
  }catch(e){const message=e instanceof Error?e.message:String(e);await supabase.from('fit_files').update({parse_status:'error',parse_error:message}).eq('id',fitFileId);return json({error:message},422)}
 }};

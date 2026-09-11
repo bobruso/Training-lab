@@ -14,10 +14,7 @@ function parsedRun(){
   const start=new Date('2026-09-11T18:00:00Z').getTime(),records=[];let distance=0;
   for(let i=0;i<=2100;i++){
     const speed=10.3,dKm=(speed/3.6)/1000;distance+=dKm;
-    records.push({
-      timestamp:new Date(start+i*1000),distance,enhanced_speed:speed,heart_rate:142+Math.round(i/2100*10),
-      enhanced_altitude:.05+Math.sin(i/120)*.0015,cadence:171,position_lat:Math.round((39.47+i*1e-7)/180*2147483648),position_long:Math.round((-0.38+i*1e-7)/180*2147483648)
-    });
+    records.push({timestamp:new Date(start+i*1000),distance,enhanced_speed:speed,heart_rate:142+Math.round(i/2100*10),enhanced_altitude:.05+Math.sin(i/120)*.0015,cadence:171,position_lat:Math.round((39.47+i*1e-7)/180*2147483648),position_long:Math.round((-0.38+i*1e-7)/180*2147483648)});
   }
   return {records,sessions:[{sport:'running',total_elapsed_time:2100,total_timer_time:2100,total_distance:distance,avg_heart_rate:147,max_heart_rate:152,total_calories:430}]};
 }
@@ -25,37 +22,15 @@ class FakeFitParser{constructor(){} async parseAsync(){return parsedRun()}}
 function fitBlob(){const b=new Uint8Array(14);b.set(new TextEncoder().encode('.FIT'),8);return new Blob([b])}
 function edge(){
   let handler;const writes=[];
-  const client={
-    auth:{getUser:async()=>({data:{user:{id:'owner'}}})},
-    storage:{from:()=>({download:async()=>({data:fitBlob()})})},
-    from:table=>{
-      const q={
-        select(){return q;},eq(){return q;},
-        single:async()=>({data:table==='fit_files'?{id:'fit',user_id:'owner',activity_id:'activity',storage_path:'owner/run.fit',original_name:'run.fit'}:{id:'activity',activity_type:'run'}}),
-        maybeSingle:async()=>({data:{hr_max_bpm:190}}),
-        update(row){writes.push({table,row});return q;},delete(){return q;},insert(row){writes.push({table,row});return q;},upsert(row){writes.push({table,row});return q;},
-        then(resolve){return Promise.resolve({error:null}).then(resolve)}
-      };return q;
-    }
-  };
+  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},storage:{from:()=>({download:async()=>({data:fitBlob()})})},from:table=>{const q={select(){return q;},eq(){return q;},single:async()=>({data:table==='fit_files'?{id:'fit',user_id:'owner',activity_id:'activity',storage_path:'owner/run.fit',original_name:'run.fit'}:{id:'activity',activity_type:'run'}}),maybeSingle:async()=>({data:{hr_max_bpm:190}}),update(row){writes.push({table,row});return q;},delete(){return q;},insert(row){writes.push({table,row});return q;},upsert(row){writes.push({table,row});return q;},then(resolve){return Promise.resolve({error:null}).then(resolve)}};return q;}};
   const source=readFileSync('supabase/functions/analyze-fit/index.ts','utf8').replace(/^import .*;\r?\n/gm,'').replace('export default handler;','');
   const context={Response,Request,Blob,TextDecoder,TextEncoder,createClient:()=>client,FitParser:FakeFitParser,analyzeFootballSession:()=>null,analyzeRunningSession,buildBaseFitAnalysis,makeReport,num,textValue,ts,makeStrengthReport,normalizeStrengthSets,persistFitAnalysis,Deno:{env:{get:()=>''},serve:fn=>handler=fn}};
-  vm.runInNewContext(stripTypeScriptTypes(source),context);
-  return {handler,writes};
+  vm.runInNewContext(stripTypeScriptTypes(source),context);return {handler,writes};
 }
 
-test('run FIT uses the deep running analyzer and v5 analysis version',async()=>{
-  const {handler,writes}=edge();
-  const req=new Request('http://local',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify({fit_file_id:'fit'})});
-  const response=await handler(req),body=await response.json();
-  assert.equal(response.status,200,JSON.stringify(body));
-  assert.equal(body.summary.runningAnalysisVersion,'running-v1');
-  assert.ok(body.summary.runningSplitCount>=5);
-  assert.equal(body.report.sport,'run');
-  const analysis=writes.find(x=>x.table==='activity_analysis'&&x.row?.analysis_version);
-  assert.equal(analysis?.row?.analysis_version,'fit-v5-running-v1');
-  const activity=writes.find(x=>x.table==='activities'&&x.row?.metrics?.runningAnalysisVersion);
-  assert.ok(activity);
-  assert.equal(activity.row.avg_pace_sec_km,body.summary.avgPaceSecKm);
-  assert.ok(writes.some(x=>x.table==='fit_files'&&x.row?.parser_version==='fit-v5 / fit-file-parser@5.0.2'));
+test('run FIT uses the deep running analyzer and current parser version',async()=>{
+  const {handler,writes}=edge(),req=new Request('http://local',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify({fit_file_id:'fit'})}),response=await handler(req),body=await response.json();
+  assert.equal(response.status,200,JSON.stringify(body));assert.equal(body.summary.runningAnalysisVersion,'running-v1');assert.ok(body.summary.runningSplitCount>=5);assert.equal(body.report.sport,'run');
+  const analysis=writes.find(x=>x.table==='activity_analysis'&&x.row?.analysis_version);assert.equal(analysis?.row?.analysis_version,'fit-v5-running-v1');
+  const activity=writes.find(x=>x.table==='activities'&&x.row?.metrics?.runningAnalysisVersion);assert.ok(activity);assert.equal(activity.row.avg_pace_sec_km,body.summary.avgPaceSecKm);assert.ok(writes.some(x=>x.table==='fit_files'&&x.row?.parser_version==='fit-v6 / fit-file-parser@5.0.2'));
 });
