@@ -83,3 +83,14 @@ export function renderRouteMap(container,trackPoints,{large=false}={}){
  container.dataset.routeState='map';
  return true;
 }
+
+function ensureFitSportOptions(){
+ const select=document.getElementById('fitType');
+ if(!select||select.querySelector('option[value="cycling"]'))return;
+ const option=document.createElement('option');option.value='cycling';option.textContent='Ciclismo';
+ const gym=select.querySelector('option[value="gym"]');select.insertBefore(option,gym||null);
+}
+if(typeof document!=='undefined'){
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureFitSportOptions,{once:true});
+ else queueMicrotask(ensureFitSportOptions);
+}
