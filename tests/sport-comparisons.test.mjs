@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildSportComparisonModel,buildSportComparisonHtml} from '../activity-sport-comparisons.js';
+
+test('running deep comparison treats lower pace and lower drift as positive',()=>{const model=buildSportComparisonModel('run',{avgPaceSecKm:330,paceRegularityPct:2.5,cardiacDriftPct:2,fastestKmPaceSec:310,avgHr:148},[{avgPaceSecKm:350,paceRegularityPct:5,cardiacDriftPct:5,fastestKmPaceSec:325,avgHr:147},{avgPaceSecKm:345,paceRegularityPct:4.5,cardiacDriftPct:4.5,fastestKmPaceSec:320,avgHr:149}]);assert.equal(model.rows.find(x=>x.key==='avgPaceSecKm').interpretation,'positive');assert.equal(model.rows.find(x=>x.key==='cardiacDriftPct').interpretation,'positive');});
+
+test('cycling compares watts and kJ as context rather than automatic improvement',()=>{const model=buildSportComparisonModel('cycling',{avgSpeedKmh:30,avgPowerW:230,cyclingWorkKj:700,avgCadenceRpm:90,elevationGainM:500,cardiacDriftPct:4},[{avgSpeedKmh:27,avgPowerW:190,cyclingWorkKj:500,avgCadenceRpm:86,elevationGainM:300,cardiacDriftPct:5}]);assert.equal(model.rows.find(x=>x.key==='avgSpeedKmh').interpretation,'positive');assert.equal(model.rows.find(x=>x.key==='avgPowerW').interpretation,'neutral');assert.equal(model.rows.find(x=>x.key==='cyclingWorkKj').interpretation,'neutral');});
+
+test('strength estimated 1RM only compares same exercise',()=>{const current={totalVolumeKg:3000,strengthSetCount:8,totalReps:60,volumeDensityKgPerMin:65,bestEstimated1RmKg:100,bestEstimated1RmExercise:'Press banca'},history=[{totalVolumeKg:2800,strengthSetCount:8,totalReps:58,volumeDensityKgPerMin:60,bestEstimated1RmKg:95,bestEstimated1RmExercise:'Press banca'},{totalVolumeKg:3200,strengthSetCount:9,totalReps:65,volumeDensityKgPerMin:68,bestEstimated1RmKg:150,bestEstimated1RmExercise:'Peso muerto'}];const model=buildSportComparisonModel('gym',current,history),e=model.rows.find(x=>x.key==='bestEstimated1RmKg');assert.equal(e.sampleCount,1);assert.equal(e.baseline,95);assert.equal(e.exercise,'Press banca');});
+
+test('comparison html is empty without prior compatible data',()=>{assert.equal(buildSportComparisonHtml('cycling',{avgSpeedKmh:28},[]),'');});
