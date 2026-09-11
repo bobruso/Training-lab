@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.webkit.JavascriptInterface
@@ -15,6 +16,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
@@ -36,6 +38,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Duration
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private var pendingSupabaseUrl: String? = null
     private var syncing = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingCameraUri: Uri? = null
     private var pendingSharedFit: String? = null
     private var pendingRouteSessionId: String? = null
     private val authorizedRoutes = mutableMapOf<String, ExerciseRoute>()
@@ -72,12 +76,19 @@ class MainActivity : ComponentActivity() {
     private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileChooserCallback ?: return@registerForActivityResult
         val uris = if (result.resultCode == Activity.RESULT_OK) {
-            val parsed = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data) ?: result.data?.data?.let { arrayOf(it) }
-            parsed?.forEach { uri -> runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
+            val parsed = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+                ?: result.data?.data?.let { arrayOf(it) }
+                ?: pendingCameraUri?.let { arrayOf(it) }
+            parsed?.forEach { uri ->
+                if (uri != pendingCameraUri) runCatching {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            }
             parsed
         } else null
         callback.onReceiveValue(uris)
         fileChooserCallback = null
+        pendingCameraUri = null
     }
 
     private val requestPermissions = registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
@@ -105,6 +116,65 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun launchFileChooser(params: WebChromeClient.FileChooserParams?): Boolean {
+        val accepts = params?.acceptTypes?.map { it.trim().lowercase() }.orEmpty()
+        val wantsImage = accepts.any { it == "image/*" || it.startsWith("image/") }
+        if (!wantsImage) {
+            pendingCameraUri = null
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            }
+            return runCatching {
+                fileChooserLauncher.launch(Intent.createChooser(intent, "Selecciona un archivo .FIT"))
+                true
+            }.getOrElse {
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = null
+                false
+            }
+        }
+
+        val temp = runCatching { File.createTempFile("traininglab-food-", ".jpg", cacheDir) }.getOrNull()
+        val cameraUri = temp?.let {
+            runCatching { FileProvider.getUriForFile(this, "$packageName.fileprovider", it) }.getOrNull()
+        }
+        val cameraIntent = cameraUri?.let { uri ->
+            Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+        }?.takeIf { it.resolveActivity(packageManager) != null }
+        pendingCameraUri = if (cameraIntent != null) cameraUri else null
+
+        if (params?.isCaptureEnabled == true && cameraIntent != null) {
+            return runCatching { fileChooserLauncher.launch(cameraIntent); true }.getOrElse {
+                pendingCameraUri = null
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = null
+                false
+            }
+        }
+
+        val gallery = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(gallery, "Foto del plato").apply {
+            if (cameraIntent != null) putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+        }
+        return runCatching { fileChooserLauncher.launch(chooser); true }.getOrElse {
+            pendingCameraUri = null
+            fileChooserCallback?.onReceiveValue(null)
+            fileChooserCallback = null
+            false
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,14 +198,14 @@ class MainActivity : ComponentActivity() {
                         (() => {
                           if (!navigator.onLine) return;
                           const build = document.querySelector('meta[name="build"]')?.content || '';
-                          if (build === 'v9.8 · build health98') return;
-                          const key = 'traininglab-native-bootstrap-9';
+                          if (build === 'v10.1 · build foodai104') return;
+                          const key = 'traininglab-native-bootstrap-10';
                           if (sessionStorage.getItem(key)) return;
                           sessionStorage.setItem(key, '1');
                           const base = new URL('./', location.href).href;
                           const unregister = ('serviceWorker' in navigator) ? navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.filter(r => r.scope.startsWith(base)).map(r => r.unregister()))) : Promise.resolve();
                           const clear = ('caches' in window) ? caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('training-lab-')).map(k => caches.delete(k)))) : Promise.resolve();
-                          Promise.all([unregister, clear]).finally(() => location.replace('./?__native_bootstrap=9&ts=' + Date.now()));
+                          Promise.all([unregister, clear]).finally(() => location.replace('./?__native_bootstrap=10&ts=' + Date.now()));
                         })();
                     """.trimIndent(), null)
                 }
@@ -144,13 +214,7 @@ class MainActivity : ComponentActivity() {
                 override fun onShowFileChooser(webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
                     fileChooserCallback?.onReceiveValue(null)
                     fileChooserCallback = filePathCallback ?: return false
-                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "*/*"
-                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                    }
-                    return try { fileChooserLauncher.launch(Intent.createChooser(intent, "Selecciona un archivo .FIT")); true } catch (_: Exception) { fileChooserCallback?.onReceiveValue(null); fileChooserCallback = null; false }
+                    return launchFileChooser(fileChooserParams)
                 }
             }
             addJavascriptInterface(WebBridge(), "TrainingLabAndroid")
