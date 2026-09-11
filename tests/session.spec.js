@@ -17,7 +17,7 @@ test('authenticated cold start, writes and logout isolation',async({page})=>{
  });
  await page.goto('/?debug=1');await page.locator('nav [data-page="ajustes"]').click();await expect(page.locator('#logoutBtn')).toBeVisible();
  await expect.poll(()=>writes.some(x=>x.table==='profiles')).toBe(true);
- await page.locator('nav [data-page="hoy"]').click();
+ await page.evaluate(()=>window.navTo('checkin'));
  await page.locator('#fatigueSel').selectOption('4');
  await page.evaluate(()=>window.saveFatigue());
  await page.evaluate(()=>{document.getElementById('weightKg').value='70.4';return window.saveWeight();});

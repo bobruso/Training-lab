@@ -252,6 +252,61 @@ function renderHistory(){
  let arr=[...S.activities].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,15);
  document.getElementById('activityRows').innerHTML=arr.map(a=>`<tr><td>${a.date}</td><td>${a.type}</td><td>${a.duration||'—'}'</td><td>${a.rpe||'—'}</td><td>${a.distance?a.distance+' km':'—'}</td><td>${a.hr||'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Todavía no hay actividades registradas.</td></tr>';
 }
+
+const ACTIVITY_SPORTS={
+ football:{icon:'⚽',label:'Fútbol',color:'#ff4fb3'},
+ run:{icon:'◢',label:'Carrera',color:'#f4e64f'},
+ cycling:{icon:'●',label:'Ciclismo',color:'#65e08a'},
+ gym:{icon:'◆',label:'Fuerza',color:'#a978ff'},
+ walk:{icon:'↑',label:'Caminata',color:'#4ed7ef'},
+ other:{icon:'＋',label:'Actividad',color:'#8fa1aa'}
+};
+const ACTIVITY_TYPE_ALIASES={running:'run',bike:'cycling',biking:'cycling',cycle:'cycling',strength:'gym',walking:'walk'};
+function activitySport(type){return ACTIVITY_SPORTS[ACTIVITY_TYPE_ALIASES[type]||type]||ACTIVITY_SPORTS.other}
+function activityMonthKey(a){return String(a.date||a.started_at||'').slice(0,7)}
+function activityTimestamp(a){return Date.parse(a.started_at||`${a.date}T12:00:00`)||0}
+function formatActivityFeedDuration(minutes){
+ const total=Math.max(0,Math.round(Number(minutes)||0)),h=Math.floor(total/60),m=total%60;
+ return h?`${h} h ${String(m).padStart(2,'0')} min`:`${m} min`;
+}
+function activityMetrics(a,type){
+ const duration=Number(a.duration||a.moving)||0,distance=Number(a.distance)||0,kcal=Number(a.kcal)||0;
+ if(type==='run'){
+  const pace=Number(a.pace)||(duration&&distance?duration*60/distance:0),paceText=pace?`${Math.floor(pace/60)}:${String(Math.round(pace%60)).padStart(2,'0')} min/km`:'';
+  return {primary:distance?`${distance.toFixed(2)} km`:formatActivityFeedDuration(duration),secondary:[formatActivityFeedDuration(duration),paceText,kcal?`${Math.round(kcal)} kcal`:''].filter(Boolean)};
+ }
+ if(type==='football')return {primary:distance?`${distance.toFixed(2)} km`:formatActivityFeedDuration(duration),secondary:[distance?formatActivityFeedDuration(duration):'',kcal?`${Math.round(kcal)} kcal`:''].filter(Boolean)};
+ if(type==='cycling'){
+  const speed=Number(a.metrics?.avg_speed_kmh)||(duration&&distance?distance/(duration/60):0);
+  return {primary:distance?`${distance.toFixed(2)} km`:formatActivityFeedDuration(duration),secondary:[formatActivityFeedDuration(duration),speed?`${speed.toFixed(1)} km/h`:''].filter(Boolean)};
+ }
+ if(type==='gym')return {primary:formatActivityFeedDuration(duration),secondary:[kcal?`${Math.round(kcal)} kcal`:''].filter(Boolean)};
+ return {primary:distance?`${distance.toFixed(2)} km`:formatActivityFeedDuration(duration),secondary:[distance&&duration?formatActivityFeedDuration(duration):'',kcal?`${Math.round(kcal)} kcal`:''].filter(Boolean)};
+}
+function createActivityCard(a){
+ const type=ACTIVITY_TYPE_ALIASES[a.type]||a.type||'other',sport=activitySport(type),metrics=activityMetrics(a,type),date=new Date(`${a.date}T12:00:00`);
+ const day=Number.isNaN(date.getTime())?'—':date.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
+ return `<button class="activity-card" type="button" style="--activity-color:${sport.color}" onclick="navTo('entrenos')" aria-label="Abrir ${sport.label} del ${day}"><span class="activity-copy"><span class="activity-meta"><i class="activity-icon" aria-hidden="true">${sport.icon}</i><span>${day} · ${sport.label}</span></span><strong class="activity-primary">${metrics.primary}</strong><span class="activity-secondary">${metrics.secondary.join(' · ')||'Sin métricas adicionales'}</span></span><span class="activity-route-preview" aria-label="Vista previa del recorrido pendiente"><span>GPS</span></span></button>`;
+}
+function renderActivityFeed(){
+ const monthSelect=document.getElementById('activityMonth'),typeSelect=document.getElementById('activityTypeFilter'),feed=document.getElementById('homeActivityFeed');
+ if(!monthSelect||!typeSelect||!feed)return;
+ const currentMonth=iso().slice(0,7),activityMonths=[...new Set(S.activities.map(activityMonthKey).filter(Boolean))].sort().reverse(),months=[...activityMonths];
+ if(!months.includes(currentMonth))months.push(currentMonth);
+ const defaultMonth=activityMonths.includes(currentMonth)?currentMonth:(activityMonths[0]||currentMonth);
+ const selectedMonth=months.includes(monthSelect.value)?monthSelect.value:defaultMonth;
+ monthSelect.innerHTML=months.map(month=>{const label=new Date(`${month}-01T12:00:00`).toLocaleDateString('es-ES',{month:'long',year:'numeric'});return `<option value="${month}"${month===selectedMonth?' selected':''}>${label}</option>`}).join('');
+ const filter=typeSelect.value||'all';
+ const activities=S.activities.filter(a=>activityMonthKey(a)===selectedMonth&&(filter==='all'||(ACTIVITY_TYPE_ALIASES[a.type]||a.type)===filter)).sort((a,b)=>activityTimestamp(b)-activityTimestamp(a));
+ const distance=activities.reduce((sum,a)=>sum+(Number(a.distance)||0),0),duration=activities.reduce((sum,a)=>sum+(Number(a.duration||a.moving)||0),0);
+ document.getElementById('activitySummaryMonth').textContent=new Date(`${selectedMonth}-01T12:00:00`).toLocaleDateString('es-ES',{month:'short',year:'numeric'});
+ document.getElementById('activitySummaryDistance').textContent=`${distance.toFixed(1)} km`;
+ document.getElementById('activitySummaryCount').textContent=String(activities.length);
+ document.getElementById('activitySummaryDuration').textContent=formatActivityFeedDuration(duration);
+ feed.innerHTML=activities.map(createActivityCard).join('')||'<div class="activity-empty card"><strong>No hay actividades en este periodo</strong><span class="muted">Cambia el mes o el filtro, o registra un entrenamiento.</span></div>';
+}
+document.getElementById('activityMonth')?.addEventListener('change',renderActivityFeed);
+document.getElementById('activityTypeFilter')?.addEventListener('change',renderActivityFeed);
 function updateProgress(){
  let seven=new Date();seven.setDate(seven.getDate()-6);seven.setHours(0,0,0,0);
  let a=S.activities.filter(x=>new Date(x.date+'T12:00:00')>=seven);
@@ -1462,7 +1517,7 @@ function renderV5(){reorderHomeForContext();renderAdaptiveActivityResponse();
  renderHomeActivities();renderQuestions();renderSleep();renderReadiness();renderRecovery();renderCompare();renderMealPlanner();renderMatchMode();renderFootballHub();renderMatchReport();renderFootballTrends();renderPostMatch();renderRpg();renderCoachTasks();renderSyncSources();renderWeeklyReportFromCloud();renderCorrelations();renderQuestList();
 }
 
-function renderAll(){renderToday();renderWeek();renderHistory();updateProgress();renderLatestAnalysis();renderV5()}
+function renderAll(){renderToday();renderWeek();renderHistory();renderActivityFeed();updateProgress();renderLatestAnalysis();renderV5()}
 if(document.getElementById('actDate'))document.getElementById('actDate').value=iso();document.getElementById('weightDate').value=iso();
 document.getElementById('injuryDate').value=iso();
 document.getElementById('allRecipes').innerHTML=recipes.map(recipeCard).join('');

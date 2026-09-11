@@ -33,87 +33,27 @@
  </nav>
 
  <section class="page on" id="hoy">
-  <div id="homeActivityNow" class="home-activity-now coros-home" hidden>
-   <div class="coros-home-head"><div><div class="eyebrow">ÚLTIMAS ACTIVIDADES</div><h2 id="homeActivityHeading">Tu actividad reciente</h2></div><button class="btn alt" onclick="navTo('entrenos')">Ver todas</button></div>
-   <div id="homeRecentActivities" class="home-activity-list"></div>
-   <div id="homeAdaptiveResponse" class="adaptive-response coros-response">
-    <div class="card activity-headline-card">
-      <div class="eyebrow">INFORME TRAINING LAB</div>
-      <h2 id="adaptiveResponseTitle">Analizando la última sesión…</h2>
-      <p class="muted" id="adaptiveResponseText"></p>
-      <div id="adaptiveHeadlineChips" class="activity-headline-chips"></div>
-    </div>
-    <div class="grid g3 postwork-grid">
-      <div class="card postwork-card"><div class="eyebrow">RECUPERACIÓN</div><h3 id="adaptiveRecoveryTitle">Movilidad y vuelta a la calma</h3><div id="adaptiveRecovery"></div></div>
-      <div class="card postwork-card"><div class="eyebrow">ALIMENTACIÓN</div><h3>Comida e hidratación</h3><div id="adaptiveNutrition"></div></div>
-      <div class="card postwork-card"><div class="eyebrow">SUEÑO</div><h3>Cómo favorecer la recuperación</h3><div id="adaptiveSleepAdvice"></div></div>
-    </div>
-    <div class="card plan-mutated-card"><div class="eyebrow">PLAN RECALCULADO</div><h3>Qué cambia a partir de lo que has hecho</h3><div id="adaptivePlanChanges"></div></div>
-    <div class="card adaptive-analysis-card">
-      <div class="eyebrow">COMPARADO CONTIGO</div><h3 id="adaptiveAnalysisTitle">Informe de la sesión</h3><div id="adaptiveAnalysis"></div>
-    </div>
-   </div>
-  </div>
-  <!-- Legacy render targets kept hidden so the old daily renderer cannot break the app. -->
-  <div class="home-legacy-today" hidden aria-hidden="true"><span id="todayText"></span><span id="clock"></span><span id="mealNow"></span><span id="weeklyLoad"></span><span id="proteinPill"></span><span id="carbPill"></span><span id="fatiguePill"></span></div>
-  <div class="section grid g3">
-   <div class="card metric readiness-card"><div class="k">Estado para entrenar</div><div class="v" id="readinessScore">—</div><div class="readiness-label" id="readinessLabel">Calculando...</div><div class="muted" id="readinessWhy">Combina sueño, recuperación, carga reciente y cómo te encuentras.</div><details class="readiness-help"><summary>¿Qué significa?</summary><p class="small muted">Es una estimación orientativa de lo preparado que estás hoy para entrenar. No es una medición médica. Cuanto más alto, más favorable es el contexto para meter carga; cuanto más bajo, más conviene ajustar o recuperar.</p><div id="readinessBreakdown"></div></details></div>
-   <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
-   <div class="card metric"><div class="k">Piernas</div><div class="v" id="homeLegs">—</div><div class="muted" id="homeLegsText">recuperación estimada</div></div>
-  </div>
-  <div class="section card module-hero smart-home-card">
-   <div class="sectionhead"><div><div class="eyebrow">Resumen inteligente</div><h2 style="margin:3px 0 0">Tus 3 prioridades de hoy</h2></div><span class="muted" id="homeContextStamp">se actualiza automáticamente</span></div>
-   <div id="coachTasks" class="smart-priorities"></div>
-  </div>
-  <div class="section grid g2">
-   <div class="card smart-decision-card">
-    <div class="eyebrow">Lo que haría hoy</div>
-    <div class="smart-decision-tag" id="homeDecisionTag">Calculando contexto…</div>
-    <div class="bigchoice" id="todayPlan">—</div>
-    <p class="muted" id="todayReason"></p>
-    <div class="home-decision-context" id="homeDecisionContext"></div>
-    <div class="actions">
-      <button class="btn" onclick="markTodayDone()">Hecho</button>
-      <button class="btn alt" onclick="navTo('entrenos')">Importar FIT</button>
-      <button class="btn alt" id="homeCheckinBtn" onclick="navTo('checkin')">Check-in rápido</button>
-    </div>
-   </div>
-   <div class="card">
-    <div class="eyebrow">Pachanga</div>
-    <h2>¿Juegas hoy?</h2>
-    <p class="muted small">El fútbol no se desplaza. Si aparece una pachanga extra, la app recoloca running/gym para no acumular intensidad.</p>
-    <div class="actions"><button class="btn" onclick="setFootball(true)">Sí, juego</button><button class="btn alt" onclick="setFootball(false)">No juego</button></div>
-    <div id="footballStatus" class="small muted" style="margin-top:9px"></div>
-   </div>
-  </div>
-
-  <div class="section card" id="matchDayPanel" style="display:none">
-   <label for="matchTime">Hora del partido</label> <input id="matchTime" type="time" aria-label="Hora del partido"><button class="btn alt" onclick="saveMatchTime()">Guardar hora</button>
-   <div class="eyebrow">Modo día de partido</div><div class="grid g2"><div><div class="match-countdown" id="matchCountdown">—</div><p class="muted">para la pachanga</p><div class="fuel"><i id="matchFuel" style="width:0%"></i></div><p class="muted" id="matchFuelText"></p></div><div><h3>Tu plan de gasolina</h3><div id="matchMealAdvice"></div></div></div>
-  </div>
-  <div class="section grid g3">
-    <div class="card">
-      <div class="eyebrow">Estado</div><h3>¿Cómo te notas?</h3>
-      <div class="field"><label>Fatiga percibida 1–5</label>
-      <select id="fatigueSel" onchange="saveFatigue()"><option value="1">1 · Muy fresco</option><option value="2">2 · Bien</option><option value="3" selected>3 · Normal</option><option value="4">4 · Cansado</option><option value="5">5 · Muy cargado</option></select></div>
-    </div>
-    <div class="card">
-      <div class="eyebrow">Peso</div><h3 id="weighTitle">Próximo control</h3><p class="muted" id="weighText"></p>
-      <div class="actions"><button class="btn alt" onclick="navTo('registro');document.getElementById('weightKg').focus()">Registrar peso</button></div>
-    </div>
-    <div class="card">
-      <div class="eyebrow">Decisión rápida</div><h3>¿Necesitas parar?</h3><button class="btn red big" onclick="restToday()">HOY DESCANSO</button>
-      <p class="small muted" id="restResult" style="margin-top:8px"></p>
-    </div>
-  </div>
-
-  <div class="section">
-   <div class="sectionhead"><h2>Puedes comer</h2><span class="muted" id="mealLabel"></span></div>
-   <div class="grid g3" id="todayRecipes"></div>
+  <div class="activity-feed-shell">
+   <div class="sectionhead activity-feed-heading"><div><div class="eyebrow">Hoy</div><h1>Todas las actividades</h1></div><button class="btn alt" type="button" onclick="navTo('progreso')">Estadísticas</button></div>
+   <div class="activity-controls" aria-label="Filtros de actividades"><div class="field"><label for="activityMonth">Mes</label><select id="activityMonth"></select></div><div class="field"><label for="activityTypeFilter">Tipo de actividad</label><select id="activityTypeFilter"><option value="all">Todas</option><option value="football">Fútbol</option><option value="run">Carrera</option><option value="cycling">Ciclismo</option><option value="gym">Fuerza</option></select></div></div>
+   <div class="activity-month-summary card" aria-live="polite"><div><span>Mes</span><strong id="activitySummaryMonth">—</strong></div><div><span>Distancia</span><strong id="activitySummaryDistance">0 km</strong></div><div><span>Entrenamientos</span><strong id="activitySummaryCount">0</strong></div><div><span>Duración</span><strong id="activitySummaryDuration">0 min</strong></div></div>
+   <div id="homeActivityFeed" class="activity-feed" aria-live="polite"></div>
   </div>
  </section>
 
+ <div class="legacy-render-targets" hidden aria-hidden="true">
+  <span id="readinessLabel"></span><span id="readinessBreakdown"></span><span id="homeLegs"></span><span id="homeLegsText"></span>
+  <span id="homeContextStamp"></span><span id="homeCheckinBtn"></span><span id="homeDecisionTag"></span><span id="homeDecisionContext"></span>
+  <span id="homeActivityNow"></span><span id="homeRecentActivities"></span><span id="homeActivityHeading"></span>
+  <span id="adaptiveResponseTitle"></span><span id="adaptiveResponseText"></span><span id="adaptiveHeadlineChips"></span>
+  <span id="adaptiveRecoveryTitle"></span><span id="adaptiveRecovery"></span><span id="adaptiveNutrition"></span><span id="adaptiveSleepAdvice"></span>
+  <span id="adaptivePlanChanges"></span><span id="adaptiveAnalysisTitle"></span><span id="adaptiveAnalysis"></span>
+ </div>
+
  <section class="page" id="semana">
+   <div class="card hero"><div class="eyebrow">Ahora</div><div class="today" id="todayText">Hoy es...</div><div class="clock" id="clock">--:--</div><p class="muted" id="mealNow">Calculando ingesta...</p><div class="pills"><span class="pill" id="weeklyLoad">Carga semanal</span><span class="pill" id="proteinPill">Proteína: 130 g</span><span class="pill" id="carbPill">HC: —</span><span class="pill" id="fatiguePill">Fatiga: —</span></div></div>
+   <div class="section card module-hero"><div class="sectionhead"><div><div class="eyebrow">Coach diario</div><h2 style="margin:3px 0 0">Lo que necesita tu atención</h2></div><span class="muted">priorizado automáticamente</span></div><div id="coachTasks"></div></div>
+   <div class="section grid g2"><div class="card"><div class="eyebrow">Te toca</div><div class="bigchoice" id="todayPlan">—</div><p class="muted" id="todayReason"></p><div class="actions"><button class="btn" onclick="markTodayDone()">Hecho</button><button class="btn alt" onclick="openRegister()">Registrar actividad</button></div></div><div class="card"><div class="eyebrow">Decisión rápida</div><h3>¿Necesitas parar?</h3><button class="btn red big" onclick="restToday()">HOY DESCANSO</button><p class="small muted" id="restResult" style="margin-top:8px"></p></div></div>
    <div class="sectionhead"><h2>Semana adaptativa</h2><span class="muted">objetivo: 3 fuerza · 2 aeróbicos · fútbol real</span></div>
    <div class="week" id="weekGrid"></div>
    <div class="section grid g3">
@@ -139,6 +79,7 @@
    </div>
    <div class="sectionhead section"><h2>Recetas</h2><span class="muted">con acceso rápido a Cookidoo</span></div>
    <div class="grid g3" id="allRecipes"></div>
+   <div class="section"><div class="sectionhead"><h2>Puedes comer ahora</h2><span class="muted" id="mealLabel"></span></div><div class="grid g3" id="todayRecipes"></div></div>
  </section>
 
  <section class="page" id="registro">
@@ -153,6 +94,7 @@
       <p class="muted small">Usa el peso medio semanal, no un único día. Objetivo orientativo: +0,1 a +0,25 kg/semana.</p>
       <button class="btn alt" onclick="saveWeight()">Guardar peso</button>
     </div>
+    <div class="card"><div class="eyebrow">Próximo control</div><h3 id="weighTitle">Próximo control</h3><p class="muted" id="weighText"></p><div class="actions"><button class="btn alt" onclick="document.getElementById('weightKg').focus()">Registrar peso</button></div></div>
    </div>
    <div class="card section">
     <div class="eyebrow">Fuerza detallada</div><h2>Registrar serie</h2>
@@ -183,6 +125,8 @@
       <p class="muted small">En la web normal, el botón explica cómo instalar el companion Android. Dentro del companion, dispara la lectura nativa de Health Connect y la sincroniza con Supabase.</p>
     </div>
    </div>
+   <div class="section grid g2"><div class="card"><div class="eyebrow">Pachanga</div><h2>¿Juegas hoy?</h2><p class="muted small">El fútbol no se desplaza. Si aparece una pachanga extra, la app recoloca running/gym para no acumular intensidad.</p><div class="actions"><button class="btn" onclick="setFootball(true)">Sí, juego</button><button class="btn alt" onclick="setFootball(false)">No juego</button></div><div id="footballStatus" class="small muted" style="margin-top:9px"></div></div></div>
+   <div class="section card" id="matchDayPanel" style="display:none"><label for="matchTime">Hora del partido</label> <input id="matchTime" type="time" aria-label="Hora del partido"><button class="btn alt" onclick="saveMatchTime()">Guardar hora</button><div class="eyebrow">Modo día de partido</div><div class="grid g2"><div><div class="match-countdown" id="matchCountdown">—</div><p class="muted">para la pachanga</p><div class="fuel"><i id="matchFuel" style="width:0%"></i></div><p class="muted" id="matchFuelText"></p></div><div><h3>Tu plan de gasolina</h3><div id="matchMealAdvice"></div></div></div></div>
  </section>
 
  <section class="page" id="futbol">
@@ -264,6 +208,7 @@
    <div><h2>Sueño</h2><span class="muted">última noche, fases, tendencias y análisis personal</span></div>
    <button class="btn alt" onclick="syncHealthConnect()">Sincronizar Health Connect</button>
   </div>
+  <div class="card metric"><div class="k">Sueño último</div><div class="v" id="todaySleep">—</div><div class="muted" id="todaySleepWindow">Tu ventana habitual: 05:00–13:00</div></div>
 
   <div class="card module-hero sleep-overview">
    <div class="eyebrow">Última noche</div>
@@ -299,6 +244,7 @@
  <section class="page" id="checkin">
   <div class="sectionhead"><h2>Test diario</h2><span class="muted">30 segundos ahora, información útil dentro de semanas</span></div>
   <div class="card"><div class="eyebrow">Hoy</div><h2>¿Cómo estás?</h2>
+   <div class="field" style="margin-bottom:12px"><label>Fatiga percibida 1–5</label><select id="fatigueSel" onchange="saveFatigue()"><option value="1">1 · Muy fresco</option><option value="2">2 · Bien</option><option value="3" selected>3 · Normal</option><option value="4">4 · Cansado</option><option value="5">5 · Muy cargado</option></select></div>
    <div class="question-grid" id="dailyQuestions"></div>
    <div class="grid g2" style="margin-top:12px">
     <div class="qcard"><b>¿Alcohol en las últimas 24 h?</b><div class="actions" style="margin-top:8px"><button class="btn alt" onclick="setBoolAnswer('alcohol',true,this)">Sí</button><button class="btn alt" onclick="setBoolAnswer('alcohol',false,this)">No</button></div></div>
@@ -315,6 +261,7 @@
  <section class="page" id="recuperacion">
   <div class="sectionhead"><h2>Recuperación corporal</h2><span class="muted">recuperación estimada · no es una medición fisiológica</span></div>
   <div class="grid g2">
+   <div class="card metric"><div class="k">Readiness</div><div class="v" id="readinessScore">—</div><div class="muted" id="readinessWhy">Necesito sueño + check-in.</div></div>
    <div class="card"><div class="eyebrow">Mapa corporal</div><div class="body-wrap">
     <div class="bodymap"><div class="bodypart body-head good"></div><div class="bodypart body-chest good" id="bodyTorso"></div><div class="bodypart body-arm-l good"></div><div class="bodypart body-arm-r good"></div><div class="bodypart body-core good"></div><div class="bodypart body-leg-l mid" id="bodyLegL"></div><div class="bodypart body-leg-r mid" id="bodyLegR"></div></div>
     <div class="recovery-list" id="recoveryList"></div>
@@ -342,6 +289,7 @@
   <div class="sectionhead"><h2>Training Quest</h2><span class="muted">tu progreso físico convertido en ARPG personal</span></div>
   <div class="card module-hero"><div class="rpg-head"><div class="avatar">⚔️</div><div><div class="eyebrow">Tu personaje</div><h2 id="rpgLevel">Nivel 1</h2><div class="xpbar"><i id="rpgXpBar" style="width:0%"></i></div><p class="muted" id="rpgXpText">0 / 100 XP</p></div></div></div>
   <div class="section grid g3">
+   <div class="card metric"><div class="k">Nivel RPG</div><div class="v" id="todayLevel">1</div><div class="muted" id="todayXp">0 XP</div></div>
    <div class="card metric"><div class="k">Fuerza</div><div class="v" id="statStrength">1</div></div>
    <div class="card metric"><div class="k">Resistencia</div><div class="v" id="statEndurance">1</div></div>
    <div class="card metric"><div class="k">Recuperación</div><div class="v" id="statRecovery">1</div></div>
