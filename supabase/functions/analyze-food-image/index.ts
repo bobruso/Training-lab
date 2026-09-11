@@ -86,7 +86,7 @@ Deno.serve(async req=>{
   try{
     response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({
       contents:[{role:'user',parts:[{text:prompt(mealHint)},{inlineData:{mimeType:mime,data}}]}],
-      generationConfig:{temperature:.15,responseMimeType:'application/json',responseSchema:schema}
+      generationConfig:{temperature:.15,responseMimeType:'application/json',responseJsonSchema:schema}
     })});
   }catch{return json({error:'No se pudo contactar con Gemini.'},502)}
   const payload=await response.json().catch(()=>({}));
