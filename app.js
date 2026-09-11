@@ -1,6 +1,7 @@
 import {analyzeLocalFit} from './vendor/fit-local.js?v=20260910share80';
 import {readinessModel,recoveryModel,runningTarget,uniqueNights} from './domain.js?v=20260910share80';
 import { createClient } from "./vendor/supabase.js?v=20260910share80";
+import {renderRouteMap} from './route-map.js?v=20260911routes85';
 
 const SUPABASE_URL = "https://nnpvklaxhomarxszlclt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4zzi_K9QK12-qtD4RG2Gxg_TyXX1TBd";
@@ -262,6 +263,7 @@ const ACTIVITY_SPORTS={
  other:{icon:'＋',label:'Actividad',color:'#8fa1aa'}
 };
 const ACTIVITY_TYPE_ALIASES={running:'run',bike:'cycling',biking:'cycling',cycle:'cycling',strength:'gym',walking:'walk'};
+let activityRouteObserver=null,selectedActivityId=null,activityFeedScrollY=0;
 function activitySport(type){return ACTIVITY_SPORTS[ACTIVITY_TYPE_ALIASES[type]||type]||ACTIVITY_SPORTS.other}
 function activityMonthKey(a){return String(a.date||a.started_at||'').slice(0,7)}
 function activityTimestamp(a){return Date.parse(a.started_at||`${a.date}T12:00:00`)||0}
@@ -286,8 +288,80 @@ function activityMetrics(a,type){
 function createActivityCard(a){
  const type=ACTIVITY_TYPE_ALIASES[a.type]||a.type||'other',sport=activitySport(type),metrics=activityMetrics(a,type),date=new Date(`${a.date}T12:00:00`);
  const day=Number.isNaN(date.getTime())?'—':date.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
- return `<button class="activity-card" type="button" style="--activity-color:${sport.color}" onclick="navTo('entrenos')" aria-label="Abrir ${sport.label} del ${day}"><span class="activity-copy"><span class="activity-meta"><i class="activity-icon" aria-hidden="true">${sport.icon}</i><span>${day} · ${sport.label}</span></span><strong class="activity-primary">${metrics.primary}</strong><span class="activity-secondary">${metrics.secondary.join(' · ')||'Sin métricas adicionales'}</span></span><span class="activity-route-preview" aria-label="Vista previa del recorrido pendiente"><span>GPS</span></span></button>`;
+ return `<button class="activity-card" type="button" style="--activity-color:${sport.color}" data-activity-id="${escapeHtml(a.id)}" aria-label="Abrir ${sport.label} del ${day}"><span class="activity-copy"><span class="activity-meta"><i class="activity-icon" aria-hidden="true">${sport.icon}</i><span>${day} · ${sport.label}</span></span><strong class="activity-primary">${metrics.primary}</strong><span class="activity-secondary">${metrics.secondary.join(' · ')||'Sin métricas adicionales'}</span></span><span class="activity-route-preview" data-route-activity-id="${escapeHtml(a.id)}" aria-label="Vista previa del recorrido"></span></button>`;
 }
+function showRouteFallback(container,sport){
+ container.dataset.routeState='fallback';
+ container.innerHTML=`<span class="activity-route-fallback"><i aria-hidden="true">${sport.icon}</i><small>GPS no disponible</small></span>`;
+}
+function hydrateActivityRoutePreviews(){
+ const previews=[...document.querySelectorAll('#homeActivityFeed .activity-route-preview')];
+ activityRouteObserver?.disconnect();
+ const hydrate=container=>{
+  const activity=S.activities.find(item=>String(item.id)===container.dataset.routeActivityId);
+  const analysis=cloudAnalyses.find(item=>String(item.activity_id)===container.dataset.routeActivityId);
+  if(!analysis?.track_points||analysis.track_points.length<2){showRouteFallback(container,activitySport(activity?.type));return}
+  renderRouteMap(container,analysis.track_points);
+ };
+ if(!('IntersectionObserver' in window)){previews.forEach(hydrate);return}
+ activityRouteObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
+  if(!entry.isIntersecting)return;
+  hydrate(entry.target);activityRouteObserver.unobserve(entry.target);
+ }),{rootMargin:'200px'});
+ previews.forEach(preview=>activityRouteObserver.observe(preview));
+}
+function existingNumber(...values){
+ for(const value of values)if(value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value))&&Number(value)!==0)return Number(value);
+ return null;
+}
+function detailMetric(label,value){return value===null||value===undefined||value===''?null:[label,String(value)]}
+function activityDetailMetrics(activity,analysis){
+ const summary=analysis?.summary||{},type=ACTIVITY_TYPE_ALIASES[activity.type]||activity.type;
+ const distance=existingNumber(activity.distance,summary.distanceKm),duration=existingNumber(activity.duration,summary.durationSec!=null?Number(summary.durationSec)/60:null);
+ const moving=existingNumber(activity.moving,summary.movingTimeSec!=null?Number(summary.movingTimeSec)/60:null);
+ const kcal=existingNumber(activity.kcal,summary.calories),avgHr=existingNumber(activity.hr,summary.avgHr),maxHr=existingNumber(activity.hrmax,summary.maxHr);
+ const common=[detailMetric('Distancia',distance!==null?`${distance.toFixed(2)} km`:null),detailMetric('Duración',duration!==null?formatActivityFeedDuration(duration):null),detailMetric('Tiempo en movimiento',moving!==null?formatActivityFeedDuration(moving):null),detailMetric('Energía',kcal!==null?`${Math.round(kcal)} kcal`:null),detailMetric('FC media',avgHr!==null?`${Math.round(avgHr)} ppm`:null),detailMetric('FC máxima',maxHr!==null?`${Math.round(maxHr)} ppm`:null)];
+ let specific=[];
+ if(type==='run'){
+  const pace=existingNumber(activity.pace,summary.avgPaceSecKm),gain=existingNumber(activity.metrics?.elevation_gain_m,summary.elevationGainM);
+  specific=[detailMetric('Ritmo medio',pace!==null?`${Math.floor(pace/60)}:${String(Math.round(pace%60)).padStart(2,'0')} min/km`:null),detailMetric('Desnivel',gain!==null?`${Math.round(gain)} m`:null)];
+ }
+ if(type==='cycling'){
+  const speed=existingNumber(activity.metrics?.avg_speed_kmh,summary.avgSpeedKmh,distance&&duration?distance/(duration/60):null);
+  specific=[detailMetric('Velocidad media',speed!==null?`${speed.toFixed(1)} km/h`:null)];
+ }
+ if(type==='football')specific=[
+  detailMetric('Pico robusto',summary.robustTopKmh!=null?`${Number(summary.robustTopKmh).toFixed(1)} km/h`:null),detailMetric('Sprints >18 km/h',summary.absoluteSprintCount),
+  detailMetric('Alta intensidad',summary.highIntensityM!=null?`${Math.round(summary.highIntensityM)} m`:null),detailMetric('Proporción alta intensidad',summary.highIntensityShare!=null?`${(Number(summary.highIntensityShare)*100).toFixed(1)} %`:null),
+  detailMetric('Metros/min en movimiento',summary.metersPerMovingMin!=null?Number(summary.metersPerMovingMin).toFixed(1):null),detailMetric('Aceleraciones',summary.accelerations),detailMetric('Deceleraciones',summary.decelerations),
+  detailMetric('Primeros 10 min',summary.first10MinM!=null?`${Math.round(summary.first10MinM)} m`:null),detailMetric('Últimos 10 min',summary.last10MinM!=null?`${Math.round(summary.last10MinM)} m`:null),detailMetric('Tiempo en Z4–Z5',summary.hrZone45Share!=null?`${(Number(summary.hrZone45Share)*100).toFixed(0)} %`:null)
+ ];
+ if(type==='gym')specific=[detailMetric('Series',summary.strengthSetCount),detailMetric('Repeticiones',summary.totalReps),detailMetric('Volumen',summary.totalVolumeKg!=null?`${Math.round(summary.totalVolumeKg)} kg·rep`:null),detailMetric('Ejercicios',Array.isArray(summary.exercises)&&summary.exercises.length?summary.exercises.join(', '):null)];
+ return [...common,...specific].filter(Boolean);
+}
+function renderActivityDetail(activity,analysis){
+ const detail=document.getElementById('activityDetailView'),type=ACTIVITY_TYPE_ALIASES[activity.type]||activity.type||'other',sport=activitySport(type),metrics=activityMetrics(activity,type),report=analysis?.report||{};
+ const date=new Date(`${activity.date}T12:00:00`),dateText=Number.isNaN(date.getTime())?'Fecha no disponible':date.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+ const items=activityDetailMetrics(activity,analysis),strengths=Array.isArray(report.strengths)?report.strengths:[],improvements=Array.isArray(report.improvements)?report.improvements:[];
+ detail.style.setProperty('--activity-color',sport.color);
+ detail.innerHTML=`<button class="activity-detail-back" type="button" data-close-activity-detail>← Todas las actividades</button><header class="activity-detail-header"><div class="activity-meta"><i class="activity-icon" aria-hidden="true">${sport.icon}</i><span>${escapeHtml(sport.label)} · ${escapeHtml(dateText)}</span></div><h1>${escapeHtml(metrics.primary)}</h1><p>${escapeHtml(metrics.secondary.join(' · '))}</p></header><div id="activityDetailMap" class="activity-detail-map" aria-label="Mapa del recorrido de ${escapeHtml(sport.label)}"></div><div class="activity-detail-metrics">${items.map(([label,value])=>`<div class="card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}</div>${report.analysis||strengths.length||improvements.length?`<section class="activity-report card"><div class="eyebrow">Informe Training Lab</div>${report.analysis?`<p>${escapeHtml(report.analysis)}</p>`:''}<div class="activity-report-columns"><div><h3>Puntos destacados</h3>${strengths.length?`<ul>${strengths.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>`:'<p class="muted">Sin puntos destacados disponibles.</p>'}</div><div><h3>A vigilar / mejorar</h3>${improvements.length?`<ul>${improvements.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>`:'<p class="muted">Sin observaciones disponibles.</p>'}</div></div></section>`:''}`;
+ const map=detail.querySelector('#activityDetailMap');
+ if(analysis?.track_points?.length>=2)requestAnimationFrame(()=>renderRouteMap(map,analysis.track_points,{large:true}));else showRouteFallback(map,sport);
+}
+function scrollActivityViewTo(top){
+ const previous=document.documentElement.style.scrollBehavior;document.documentElement.style.scrollBehavior='auto';window.scrollTo(0,top);document.documentElement.style.scrollBehavior=previous;
+}
+window.openActivityDetail=function openActivityDetail(activityId){
+ const activity=S.activities.find(item=>String(item.id)===String(activityId));if(!activity)return;
+ selectedActivityId=activity.id;activityFeedScrollY=window.scrollY;
+ const analysis=cloudAnalyses.find(item=>String(item.activity_id)===String(selectedActivityId));
+ renderActivityDetail(activity,analysis);document.getElementById('activityFeedView').hidden=true;document.getElementById('activityDetailView').hidden=false;scrollActivityViewTo(0);
+};
+window.closeActivityDetail=function closeActivityDetail(){
+ selectedActivityId=null;document.getElementById('activityDetailView').hidden=true;document.getElementById('activityFeedView').hidden=false;requestAnimationFrame(()=>scrollActivityViewTo(activityFeedScrollY));
+};
+document.getElementById('homeActivityFeed')?.addEventListener('click',event=>{const card=event.target.closest('.activity-card[data-activity-id]');if(card)window.openActivityDetail(card.dataset.activityId)});
+document.getElementById('activityDetailView')?.addEventListener('click',event=>{if(event.target.closest('[data-close-activity-detail]'))window.closeActivityDetail()});
 function renderActivityFeed(){
  const monthSelect=document.getElementById('activityMonth'),typeSelect=document.getElementById('activityTypeFilter'),feed=document.getElementById('homeActivityFeed');
  if(!monthSelect||!typeSelect||!feed)return;
@@ -304,6 +378,7 @@ function renderActivityFeed(){
  document.getElementById('activitySummaryCount').textContent=String(activities.length);
  document.getElementById('activitySummaryDuration').textContent=formatActivityFeedDuration(duration);
  feed.innerHTML=activities.map(createActivityCard).join('')||'<div class="activity-empty card"><strong>No hay actividades en este periodo</strong><span class="muted">Cambia el mes o el filtro, o registra un entrenamiento.</span></div>';
+ hydrateActivityRoutePreviews();
 }
 document.getElementById('activityMonth')?.addEventListener('change',renderActivityFeed);
 document.getElementById('activityTypeFilter')?.addEventListener('change',renderActivityFeed);

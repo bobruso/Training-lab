@@ -40,7 +40,7 @@ test.describe('PWA',()=>{
  await page.goto('/?debug=1');await page.waitForFunction(()=>navigator.serviceWorker.controller);
  await page.reload();await page.waitForFunction(()=>window.TrainingLab?.state.appReady);
  const keys=await page.evaluate(async()=>{const names=await caches.keys();return (await Promise.all(names.filter(n=>n.startsWith('training-lab-')).map(async n=>(await (await caches.open(n)).keys()).map(r=>r.url)))).flat();});
- expect(keys.some(k=>k.includes('app.js?v='))).toBe(true);expect(keys.some(k=>k.includes('supabase.co'))).toBe(false);
+ expect(keys.some(k=>k.includes('app.js?v='))).toBe(true);expect(keys.some(k=>k.includes('route-map.js?v='))).toBe(true);expect(keys.some(k=>k.includes('supabase.co'))).toBe(false);
  await context.setOffline(true);await page.reload();await page.waitForFunction(()=>window.TrainingLab?.state.appReady);await expect(page.locator('#todayPlan')).not.toHaveText('');
  await context.setOffline(false);
  });
