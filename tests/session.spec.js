@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 const id='11111111-1111-4111-8111-111111111111';
+async function openSettings(page){await page.locator('.gear-button').click();await page.locator('[data-gear-page="ajustes"]').click();await expect(page.locator('#ajustes')).toHaveClass(/on/)}
 test('authenticated cold start, writes and logout isolation',async({page})=>{
  const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.addInitScript(({id})=>{
@@ -15,7 +16,7 @@ test('authenticated cold start, writes and logout isolation',async({page})=>{
  if(table==='user')body={id,email:'qa@example.com'};
  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
  });
- await page.goto('/?debug=1');await page.locator('nav [data-page="ajustes"]').click();await expect(page.locator('#logoutBtn')).toBeVisible();
+ await page.goto('/?debug=1');await page.waitForFunction(()=>window.TrainingLab?.state.appReady);await openSettings(page);await expect(page.locator('#logoutBtn')).toBeVisible();
  await expect.poll(()=>writes.some(x=>x.table==='profiles')).toBe(true);
  await page.evaluate(()=>window.navTo('checkin'));
  await page.locator('#fatigueSel').selectOption('4');
@@ -29,7 +30,7 @@ test('authenticated cold start, writes and logout isolation',async({page})=>{
  expect(await page.evaluate(()=>window.logSuggestedMeal('comida','rejected').then(()=>false,()=>true))).toBe(true);
  expect(await page.evaluate(()=>window.cloudMeals.length)).toBe(before);
  await expect(page.locator('#appError')).toBeVisible();
- await page.locator('nav [data-page="ajustes"]').click();await page.locator('#logoutBtn').click();
+ await page.evaluate(()=>window.navTo('ajustes'));await page.locator('#logoutBtn').click();
  await expect.poll(()=>page.evaluate(()=>window.TrainingLab.state.authenticated)).toBe(false);
  await expect(page.locator('[data-auth=signin]')).toHaveCount(1);
  expect(errors).toEqual([]);
