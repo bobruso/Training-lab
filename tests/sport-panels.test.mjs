@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {sportPanelHtml} from '../activity-sport-panels.js';
+
+test('running panel renders km splits and cautious cardiac drift',()=>{const html=sportPanelHtml({summary:{activityType:'run'},report:{sport:'run',sections:{splits:{km_mas_rapido:2,km_mas_lento:1,detalle:[{index:1,complete:true,paceSecKm:370,avgHr:145,elevationGainM:3},{index:2,complete:true,paceSecKm:355,avgHr:149,elevationGainM:2}]},regularidad:{lectura:'Bastante estable'},mitades:{lectura:'Negative split'},cardiaco:{deriva_pct:2.4}}}});assert.match(html,/Splits por kilómetro/);assert.match(html,/Km 2/);assert.match(html,/5:55\/km/);assert.match(html,/Deriva FC 2\.4%/);});
+
+test('cycling panel renders power metrics and FTP zones only when present',()=>{const html=sportPanelHtml({summary:{activityType:'cycling'},report:{sport:'cycling',sections:{resumen:{velocidad_media_km_h:28.4},potencia:{disponible:true,potencia_media_w:210,potencia_max_w:500,trabajo_kj:630,ftp_w:250,zonas_disponibles:true,zonas:[{zone:1,min_w:0,max_w:138,seconds:600},{zone:2,min_w:138,max_w:188,seconds:1200}]},cadencia:{cadencia_media_rpm:88},elevacion:{desnivel_positivo_m:420},cardiaco:{lectura:'Deriva baja',deriva_pct:2},mitades:{cambio_velocidad_segunda_mitad_pct:1.5}}}});assert.match(html,/Rendimiento en bici/);assert.match(html,/210 W/);assert.match(html,/630 kJ/);assert.match(html,/FTP 250 W/);assert.match(html,/Z1/);});
+
+test('strength panel renders exercise table and estimated 1RM disclaimer',()=>{const html=sportPanelHtml({summary:{activityType:'gym'},report:{sport:'gym',sections:{resumen:{series_trabajo:6,repeticiones:48,volumen_kg_rep:3200,densidad_kg_rep_min:64,ejercicios:2},mejor_estimacion:{ejercicio:'Press banca',estimacion_1rm_kg:95.3}},details:{exercises:[{exercise:'Press banca',sets:3,reps:24,volumeKg:1800,bestE1rmKg:95.3,maxWeightKg:75}],muscles:[{muscle:'pecho',sharePct:56,volumeKg:1800}]}}});assert.match(html,/Detalle de fuerza/);assert.match(html,/Press banca/);assert.match(html,/95\.3 kg/);assert.match(html,/estimación Epley/i);});
+
+test('unsupported sports do not add a deep panel',()=>{assert.equal(sportPanelHtml({summary:{activityType:'football'},report:{sport:'football'}}),'');});

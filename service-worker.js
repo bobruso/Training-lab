@@ -1,6 +1,6 @@
-const CACHE='training-lab-20260911sports87';
-const ASSETS=['./','./index.html','./app.js?v=20260911insights86','./route-map.js?v=20260911insights86','./activity-detail-enhancer.js?v=20260911insights86','./activity-insights.js?v=20260911insights86','./activity-charts.js?v=20260911insights86','./activity-insights.css?v=20260911insights86','./runtime.js?v=20260910authfix84','./styles.css?v=20260911insights86','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
-// Sports analysis refresh: cycling FIT selector + deep cycling/strength backend.
+const CACHE='training-lab-20260911sports88';
+const ASSETS=['./','./index.html','./app.js?v=20260911insights86','./route-map.js?v=20260911insights86','./activity-detail-enhancer.js?v=20260911insights86','./activity-sport-panels.js?v=20260911sports88','./activity-sport-panels.css?v=20260911sports88','./activity-insights.js?v=20260911insights86','./activity-charts.js?v=20260911insights86','./activity-insights.css?v=20260911insights86','./runtime.js?v=20260910authfix84','./styles.css?v=20260911insights86','./domain.js?v=20260910share80','./vendor/supabase.js?v=20260910share80','./vendor/fit-local.js?v=20260910share80','./manifest.webmanifest','./favicon.png','./privacy.html'];
+// Sport panels refresh: visible deep running, cycling and strength analysis.
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   await cache.addAll(ASSETS.map(url=>new Request(url,{cache:'reload'})));
@@ -19,10 +19,7 @@ self.addEventListener('fetch',event=>{
   if(!isDocument&&!asset)return;
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE);
-    if(isDocument){
-      const indexUrl=new URL('./index.html',base).href;
-      try{const fresh=await fetch(new Request(indexUrl,{cache:'no-store'}));if(fresh.ok)await cache.put(indexUrl,fresh.clone());return fresh;}catch{return await cache.match(indexUrl);}
-    }
+    if(isDocument){const indexUrl=new URL('./index.html',base).href;try{const fresh=await fetch(new Request(indexUrl,{cache:'no-store'}));if(fresh.ok)await cache.put(indexUrl,fresh.clone());return fresh;}catch{return await cache.match(indexUrl)}}
     return (await cache.match(event.request)) || fetch(event.request);
   })());
 });
