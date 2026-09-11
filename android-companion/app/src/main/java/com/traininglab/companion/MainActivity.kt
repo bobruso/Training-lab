@@ -17,8 +17,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseRoute
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
@@ -43,12 +45,26 @@ import java.time.ZoneId
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private val client by lazy { HealthConnectClient.getOrCreate(this) }
+    private val richReader by lazy { HealthConnectRichReader(client) }
     private var pendingToken: String? = null
     private var pendingSupabaseUrl: String? = null
     private var syncing = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private var pendingSharedFit: String? = null
+    private var pendingRouteSessionId: String? = null
+    private val authorizedRoutes = mutableMapOf<String, ExerciseRoute>()
     private val backendUrl = "https://nnpvklaxhomarxszlclt.supabase.co"
+
+    private val basePermissions = setOf(
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+        HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+    )
+    private val requestedPermissions by lazy { basePermissions + HealthConnectRichReader.optionalPermissions() }
 
     private fun trusted(uri: Uri): Boolean = uri.scheme == "https" && uri.host == "bobruso.github.io" &&
         (uri.port == -1 || uri.port == 443) && uri.path?.startsWith("/Training-lab/") == true
@@ -64,23 +80,27 @@ class MainActivity : ComponentActivity() {
         fileChooserCallback = null
     }
 
-    private val permissions = setOf(
-        HealthPermission.getReadPermission(SleepSessionRecord::class),
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
-        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
-        HealthPermission.getReadPermission(DistanceRecord::class),
-        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
-    )
-
-    private val requestPermissions = registerForActivityResult(PermissionController.createRequestPermissionResultContract()) {
+    private val requestPermissions = registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
         lifecycleScope.launch {
-            val granted = client.permissionController.getGrantedPermissions()
-            if (granted.containsAll(permissions)) doSync() else {
+            if (granted.containsAll(basePermissions)) doSync() else {
                 pendingToken = null
                 syncing = false
-                sendError("Faltan permisos de Health Connect.")
+                sendError("Faltan permisos básicos de Health Connect. Puedes negar velocidad, cadencia o potencia y la sincronización seguirá funcionando.")
+            }
+        }
+    }
+
+    private val exerciseRouteLauncher = registerForActivityResult(ExerciseRouteRequestContract()) { route ->
+        val sessionId = pendingRouteSessionId
+        pendingRouteSessionId = null
+        if (sessionId != null && route != null) {
+            authorizedRoutes[sessionId] = route
+            runOnUiThread {
+                webView.evaluateJavascript("window.healthConnectRouteAuthorized?.(${JSONObject.quote(sessionId)})", null)
+            }
+        } else {
+            runOnUiThread {
+                webView.evaluateJavascript("window.healthConnectRouteDenied?.()", null)
             }
         }
     }
@@ -108,14 +128,14 @@ class MainActivity : ComponentActivity() {
                         (() => {
                           if (!navigator.onLine) return;
                           const build = document.querySelector('meta[name="build"]')?.content || '';
-                          if (build === 'v8.3 · build iconfix83') return;
-                          const key = 'traininglab-native-bootstrap-7';
+                          if (build === 'v9.8 · build health98') return;
+                          const key = 'traininglab-native-bootstrap-9';
                           if (sessionStorage.getItem(key)) return;
                           sessionStorage.setItem(key, '1');
                           const base = new URL('./', location.href).href;
                           const unregister = ('serviceWorker' in navigator) ? navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.filter(r => r.scope.startsWith(base)).map(r => r.unregister()))) : Promise.resolve();
                           const clear = ('caches' in window) ? caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('training-lab-')).map(k => caches.delete(k)))) : Promise.resolve();
-                          Promise.all([unregister, clear]).finally(() => location.replace('./?__native_bootstrap=7&ts=' + Date.now()));
+                          Promise.all([unregister, clear]).finally(() => location.replace('./?__native_bootstrap=9&ts=' + Date.now()));
                         })();
                     """.trimIndent(), null)
                 }
@@ -177,7 +197,28 @@ class MainActivity : ComponentActivity() {
                 val status = HealthConnectClient.getSdkStatus(this@MainActivity)
                 if (status != HealthConnectClient.SDK_AVAILABLE) { pendingToken = null; syncing = false; sendError("Health Connect no está disponible en este dispositivo."); return@launch }
                 val granted = client.permissionController.getGrantedPermissions()
-                if (!granted.containsAll(permissions)) runOnUiThread { requestPermissions.launch(permissions) } else doSync()
+                if (!granted.containsAll(basePermissions)) runOnUiThread { requestPermissions.launch(requestedPermissions) }
+                else doSync()
+            }
+        }
+
+        @JavascriptInterface fun requestExerciseRoute(sessionId: String) {
+            if (sessionId.isBlank()) return
+            runOnUiThread {
+                val page = runCatching { Uri.parse(webView.url ?: "") }.getOrNull()
+                if (page == null || !trusted(page)) return@runOnUiThread
+                pendingRouteSessionId = sessionId
+                runCatching { exerciseRouteLauncher.launch(sessionId) }
+                    .onFailure { pendingRouteSessionId = null; sendError("No se pudo abrir el permiso de ruta GPS de Health Connect.") }
+            }
+        }
+
+        @JavascriptInterface fun openHealthConnectSettings() {
+            runOnUiThread {
+                val page = runCatching { Uri.parse(webView.url ?: "") }.getOrNull()
+                if (page == null || !trusted(page)) return@runOnUiThread
+                runCatching { startActivity(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)) }
+                    .onFailure { sendError("No se pudieron abrir los ajustes de Health Connect.") }
             }
         }
     }
@@ -201,10 +242,15 @@ class MainActivity : ComponentActivity() {
             }
             val sessions=client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class,TimeRangeFilter.between(workoutStart,now))).records
             val activitiesJson=JSONArray()
+            val oneTimeRoutesUsed=mutableListOf<String>()
             for(s in sessions){
-                val hr=client.readRecords(ReadRecordsRequest(HeartRateRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.flatMap{it.samples}.map{it.beatsPerMinute}
-                val distances=client.readRecords(ReadRecordsRequest(DistanceRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.sumOf{it.distance.inKilometers}
-                val calories=client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.sumOf{it.energy.inKilocalories}
+                val sourcePackage=s.metadata.dataOrigin.packageName
+                val hr=runCatching{client.readRecords(ReadRecordsRequest(HeartRateRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.filter{it.metadata.dataOrigin.packageName==sourcePackage}.flatMap{it.samples}.map{it.beatsPerMinute}}.getOrDefault(emptyList())
+                val distances=runCatching{client.readRecords(ReadRecordsRequest(DistanceRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.filter{it.metadata.dataOrigin.packageName==sourcePackage}.sumOf{it.distance.inKilometers}}.getOrDefault(0.0)
+                val calories=runCatching{client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.filter{it.metadata.dataOrigin.packageName==sourcePackage}.sumOf{it.energy.inKilocalories}}.getOrDefault(0.0)
+                val routeOverride=authorizedRoutes[s.metadata.id]
+                val rich=richReader.read(s,routeOverride)
+                if(routeOverride!=null)oneTimeRoutesUsed+=s.metadata.id
                 val type=when(s.exerciseType){
                     ExerciseSessionRecord.EXERCISE_TYPE_SOCCER->"football"
                     ExerciseSessionRecord.EXERCISE_TYPE_BIKING,ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY->"cycling"
@@ -212,11 +258,26 @@ class MainActivity : ComponentActivity() {
                     ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING->"gym"
                     else->"other"
                 }
-                val o=JSONObject().put("external_id",s.metadata.id).put("source_app",s.metadata.dataOrigin.packageName).put("activity_date",s.startTime.atZone(ZoneId.systemDefault()).toLocalDate().toString()).put("started_at",s.startTime.toString()).put("activity_type",type).put("title",s.title?:"Health Connect").put("duration_min",Duration.between(s.startTime,s.endTime).seconds/60.0).put("distance_km",distances).put("calories",calories.toInt()).put("metrics",JSONObject().put("health_connect_exercise_type",s.exerciseType));if(hr.isNotEmpty()){o.put("avg_hr",hr.average().toInt());o.put("max_hr",hr.max())};activitiesJson.put(o)
+                val metrics=JSONObject()
+                    .put("health_connect_exercise_type",s.exerciseType)
+                    .put("health_connect_capabilities",rich.getJSONObject("health_connect_capabilities"))
+                    .put("data_completeness",rich.getString("data_completeness"))
+                    .put("route_status",rich.getString("route_status"))
+                    .put("analysis_points",rich.getJSONArray("analysis_points"))
+                    .put("laps",rich.getJSONArray("laps"))
+                    .put("segments",rich.getJSONArray("segments"))
+                listOf("avg_speed_kmh","max_speed_kmh","avg_step_cadence_spm","avg_cycling_cadence_rpm","avg_power_w","max_power_w","elevation_gain_m").forEach{key->if(rich.has(key))metrics.put(key,rich.get(key))}
+                val o=JSONObject().put("external_id",s.metadata.id).put("source_app",sourcePackage).put("activity_date",s.startTime.atZone(ZoneId.systemDefault()).toLocalDate().toString()).put("started_at",s.startTime.toString()).put("activity_type",type).put("title",s.title?:"Health Connect").put("duration_min",Duration.between(s.startTime,s.endTime).seconds/60.0).put("distance_km",distances).put("calories",calories.toInt()).put("route_points",rich.getJSONArray("route_points")).put("metrics",metrics)
+                if(rich.has("max_speed_kmh"))o.put("top_speed_kmh",rich.getDouble("max_speed_kmh"))
+                if(rich.has("elevation_gain_m"))o.put("elevation_gain_m",rich.getDouble("elevation_gain_m"))
+                if(hr.isNotEmpty()){o.put("avg_hr",hr.average().toInt());o.put("max_hr",hr.max())}
+                activitiesJson.put(o)
             }
             val payload=JSONObject().put("sleep",sleepJson).put("activities",activitiesJson)
-            val result=withContext(Dispatchers.IO){postToSupabase(payload.toString())};sendSuccess(result)
-        }catch(_:Exception){sendError("No se ha completado la sincronización. Comprueba permisos y conexión.")}finally{pendingToken=null;pendingSupabaseUrl=null;syncing=false}
+            val result=withContext(Dispatchers.IO){postToSupabase(payload.toString())}
+            oneTimeRoutesUsed.forEach{authorizedRoutes.remove(it)}
+            sendSuccess(result)
+        }catch(e:Exception){sendError("No se ha completado la sincronización. ${e.message ?: "Comprueba permisos y conexión."}")}finally{pendingToken=null;pendingSupabaseUrl=null;syncing=false}
     }
     private fun postToSupabase(json:String):String{val token=pendingToken?:error("Falta sesión");val url=URL("$backendUrl/functions/v1/health-connect-ingest");val conn=(url.openConnection() as HttpURLConnection).apply{requestMethod="POST";doOutput=true;connectTimeout=15000;readTimeout=30000;setRequestProperty("Authorization","Bearer $token");setRequestProperty("Content-Type","application/json")};conn.outputStream.use{it.write(json.toByteArray())};val body=(if(conn.responseCode in 200..299)conn.inputStream else conn.errorStream).bufferedReader().use{it.readText()};if(conn.responseCode !in 200..299)error(body);return body}
     private fun sendSuccess(result:String)=runOnUiThread{webView.evaluateJavascript("window.healthConnectSyncFinished(${JSONObject.quote(result)})",null)}
