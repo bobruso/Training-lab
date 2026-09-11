@@ -37,4 +37,4 @@ jobs:
           git add -A
           git commit -m "Add deep football FIT analysis"
           git push origin feature/football-analysis-v1
-# retry after adapting tests/fit.test.mjs for the new pure analyzer import
+# retry after strict TypeScript narrowing fix
