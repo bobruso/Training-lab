@@ -53,18 +53,11 @@ class MainActivity : ComponentActivity() {
     private fun trusted(uri: Uri): Boolean = uri.scheme == "https" && uri.host == "bobruso.github.io" &&
         (uri.port == -1 || uri.port == 443) && uri.path?.startsWith("/Training-lab/") == true
 
-    private val fileChooserLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
+    private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileChooserCallback ?: return@registerForActivityResult
         val uris = if (result.resultCode == Activity.RESULT_OK) {
-            val parsed = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-                ?: result.data?.data?.let { arrayOf(it) }
-            parsed?.forEach { uri ->
-                runCatching {
-                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-            }
+            val parsed = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data) ?: result.data?.data?.let { arrayOf(it) }
+            parsed?.forEach { uri -> runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
             parsed
         } else null
         callback.onReceiveValue(uris)
@@ -81,13 +74,10 @@ class MainActivity : ComponentActivity() {
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
     )
 
-    private val requestPermissions = registerForActivityResult(
-        PermissionController.createRequestPermissionResultContract()
-    ) {
+    private val requestPermissions = registerForActivityResult(PermissionController.createRequestPermissionResultContract()) {
         lifecycleScope.launch {
             val granted = client.permissionController.getGrantedPermissions()
-            if (granted.containsAll(permissions)) doSync()
-            else {
+            if (granted.containsAll(permissions)) doSync() else {
                 pendingToken = null
                 syncing = false
                 sendError("Faltan permisos de Health Connect.")
@@ -103,26 +93,18 @@ class MainActivity : ComponentActivity() {
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
             settings.allowContentAccess = true
-
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     if (trusted(request.url)) return false
-                    if (request.isForMainFrame && request.url.scheme == "https") {
-                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
-                    }
+                    if (request.isForMainFrame && request.url.scheme == "https") runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
                     return true
                 }
-
                 override fun onPageFinished(view: WebView, url: String?) {
                     super.onPageFinished(view, url)
                     val page = url ?: return
                     val uri = runCatching { Uri.parse(page) }.getOrNull() ?: return
                     if (!trusted(uri)) return
-
-                    // v0.7 bootstrap: escape a stale service-worker cache without clearing
-                    // cookies, localStorage, the Supabase session or Health Connect permissions.
-                    view.evaluateJavascript(
-                        """
+                    view.evaluateJavascript("""
                         (() => {
                           if (!navigator.onLine) return;
                           const build = document.querySelector('meta[name="build"]')?.content || '';
@@ -131,48 +113,26 @@ class MainActivity : ComponentActivity() {
                           if (sessionStorage.getItem(key)) return;
                           sessionStorage.setItem(key, '1');
                           const base = new URL('./', location.href).href;
-                          const unregister = ('serviceWorker' in navigator)
-                            ? navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.filter(r => r.scope.startsWith(base)).map(r => r.unregister())))
-                            : Promise.resolve();
-                          const clear = ('caches' in window)
-                            ? caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('training-lab-')).map(k => caches.delete(k))))
-                            : Promise.resolve();
+                          const unregister = ('serviceWorker' in navigator) ? navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.filter(r => r.scope.startsWith(base)).map(r => r.unregister()))) : Promise.resolve();
+                          const clear = ('caches' in window) ? caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('training-lab-')).map(k => caches.delete(k)))) : Promise.resolve();
                           Promise.all([unregister, clear]).finally(() => location.replace('./?__native_bootstrap=7&ts=' + Date.now()));
                         })();
-                        """.trimIndent(),
-                        null
-                    )
+                    """.trimIndent(), null)
                 }
             }
-
             webChromeClient = object : WebChromeClient() {
-                override fun onShowFileChooser(
-                    webView: WebView?,
-                    filePathCallback: ValueCallback<Array<Uri>>?,
-                    fileChooserParams: FileChooserParams?
-                ): Boolean {
+                override fun onShowFileChooser(webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
                     fileChooserCallback?.onReceiveValue(null)
                     fileChooserCallback = filePathCallback ?: return false
-
-                    // FIT files often have no reliable MIME type on Android. Force the
-                    // Storage Access Framework / Documents picker instead of Gallery.
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "*/*"
                         putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                     }
-                    return try {
-                        fileChooserLauncher.launch(Intent.createChooser(intent, "Selecciona un archivo .FIT"))
-                        true
-                    } catch (_: Exception) {
-                        fileChooserCallback?.onReceiveValue(null)
-                        fileChooserCallback = null
-                        false
-                    }
+                    return try { fileChooserLauncher.launch(Intent.createChooser(intent, "Selecciona un archivo .FIT")); true } catch (_: Exception) { fileChooserCallback?.onReceiveValue(null); fileChooserCallback = null; false }
                 }
             }
-
             addJavascriptInterface(WebBridge(), "TrainingLabAndroid")
         }
         captureSharedFit(intent)
@@ -180,285 +140,85 @@ class MainActivity : ComponentActivity() {
         loadInitialUrl(intent)
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        captureSharedFit(intent)
-        loadInitialUrl(intent)
-    }
-
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); captureSharedFit(intent); loadInitialUrl(intent) }
     @Suppress("DEPRECATION")
-    private fun sharedStream(intent: Intent): Uri? =
-        intent.getParcelableExtra(Intent.EXTRA_STREAM) ?: intent.clipData?.getItemAt(0)?.uri
-
+    private fun sharedStream(intent: Intent): Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM) ?: intent.clipData?.getItemAt(0)?.uri
     private fun sharedDisplayName(uri: Uri): String {
-        if (uri.scheme == "content") {
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-                if (c.moveToFirst()) {
-                    val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (i >= 0) c.getString(i)?.takeIf { it.isNotBlank() }?.let { return it }
-                }
-            }
-        }
+        if (uri.scheme == "content") contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) { val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME); if (i >= 0) c.getString(i)?.takeIf { it.isNotBlank() }?.let { return it } } }
         return uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "coros-actividad.fit"
     }
-
     private fun captureSharedFit(intent: Intent?): Boolean {
         if (intent?.action != Intent.ACTION_SEND) return false
-        val uri = sharedStream(intent) ?: run {
-            pendingSharedFit = JSONObject().put("error", "Training Lab no ha recibido ningún archivo desde COROS.").toString()
-            return true
-        }
+        val uri = sharedStream(intent) ?: run { pendingSharedFit = JSONObject().put("error", "Training Lab no ha recibido ningún archivo desde COROS.").toString(); return true }
         return try {
             val out = ByteArrayOutputStream()
-            contentResolver.openInputStream(uri)?.use { input ->
-                val buffer = ByteArray(8192)
-                var total = 0
-                while (true) {
-                    val n = input.read(buffer)
-                    if (n <= 0) break
-                    total += n
-                    if (total > 20 * 1024 * 1024) error("El FIT supera el límite de 20 MB")
-                    out.write(buffer, 0, n)
-                }
-            } ?: error("No se puede abrir el archivo compartido")
-            val bytes = out.toByteArray()
-            if (bytes.size < 12 || String(bytes, 8, 4, Charsets.US_ASCII) != ".FIT") error("El archivo compartido no es un FIT válido")
-            var name = sharedDisplayName(uri)
-            if (!name.endsWith(".fit", ignoreCase = true)) name += ".fit"
-            pendingSharedFit = JSONObject()
-                .put("name", name)
-                .put("activity_type", "football")
-                .put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP))
-                .toString()
-            true
-        } catch (e: Exception) {
-            pendingSharedFit = JSONObject().put("error", "No se ha podido recibir el FIT: ${e.message ?: "archivo no válido"}").toString()
-            true
-        }
+            contentResolver.openInputStream(uri)?.use { input -> val buffer = ByteArray(8192); var total = 0; while (true) { val n = input.read(buffer); if (n <= 0) break; total += n; if (total > 20 * 1024 * 1024) error("El FIT supera el límite de 20 MB"); out.write(buffer, 0, n) } } ?: error("No se puede abrir el archivo compartido")
+            val bytes = out.toByteArray(); if (bytes.size < 12 || String(bytes, 8, 4, Charsets.US_ASCII) != ".FIT") error("El archivo compartido no es un FIT válido")
+            var name = sharedDisplayName(uri); if (!name.endsWith(".fit", ignoreCase = true)) name += ".fit"
+            pendingSharedFit = JSONObject().put("name", name).put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP)).toString(); true
+        } catch (e: Exception) { pendingSharedFit = JSONObject().put("error", "No se ha podido recibir el FIT: ${e.message ?: "archivo no válido"}").toString(); true }
     }
 
     private fun loadInitialUrl(intent: Intent?) {
         val uri = intent?.data
         if (uri?.scheme == "traininglab" && uri.host == "auth") {
-            val suffix = buildString {
-                if (!uri.encodedQuery.isNullOrBlank()) append("?").append(uri.encodedQuery)
-                if (!uri.encodedFragment.isNullOrBlank()) append("#").append(uri.encodedFragment)
-            }
+            val suffix = buildString { if (!uri.encodedQuery.isNullOrBlank()) append("?").append(uri.encodedQuery); if (!uri.encodedFragment.isNullOrBlank()) append("#").append(uri.encodedFragment) }
             webView.loadUrl(getString(R.string.training_lab_url) + suffix)
-        } else {
-            webView.loadUrl(getString(R.string.training_lab_url))
-        }
+        } else webView.loadUrl(getString(R.string.training_lab_url))
     }
 
     inner class WebBridge {
-        @JavascriptInterface
-        fun consumeSharedFit(): String {
-            // JavascriptInterface methods run on WebView's bridge thread.
-            // Do not touch WebView from here: non-Training Lab main-frame URLs are
-            // already blocked/opened externally by WebViewClient.
-            val payload = pendingSharedFit ?: return ""
-            pendingSharedFit = null
-            return payload
-        }
-
-        @JavascriptInterface
-        fun syncHealthConnect(accessToken: String, supabaseUrl: String) {
+        @JavascriptInterface fun consumeSharedFit(): String { val payload = pendingSharedFit ?: return ""; pendingSharedFit = null; return payload }
+        @JavascriptInterface fun syncHealthConnect(accessToken: String, supabaseUrl: String) {
             lifecycleScope.launch {
-                if (!trusted(Uri.parse(webView.url ?: "")) || supabaseUrl != backendUrl) {
-                    sendError("Origen de sincronización no permitido.")
-                    return@launch
-                }
+                if (!trusted(Uri.parse(webView.url ?: "")) || supabaseUrl != backendUrl) { sendError("Origen de sincronización no permitido."); return@launch }
                 if (syncing) return@launch
-                syncing = true
-                pendingToken = accessToken
-                pendingSupabaseUrl = backendUrl
+                syncing = true; pendingToken = accessToken; pendingSupabaseUrl = backendUrl
                 val status = HealthConnectClient.getSdkStatus(this@MainActivity)
-                if (status != HealthConnectClient.SDK_AVAILABLE) {
-                    pendingToken = null
-                    syncing = false
-                    sendError("Health Connect no está disponible en este dispositivo.")
-                    return@launch
-                }
+                if (status != HealthConnectClient.SDK_AVAILABLE) { pendingToken = null; syncing = false; sendError("Health Connect no está disponible en este dispositivo."); return@launch }
                 val granted = client.permissionController.getGrantedPermissions()
-                if (!granted.containsAll(permissions)) {
-                    runOnUiThread { requestPermissions.launch(permissions) }
-                } else doSync()
+                if (!granted.containsAll(permissions)) runOnUiThread { requestPermissions.launch(permissions) } else doSync()
             }
         }
     }
 
     private suspend fun doSync() {
         try {
-            val now = Instant.now()
-            val sleepStart = now.minus(Duration.ofDays(14))
-            val workoutStart = now.minus(Duration.ofDays(30))
-
-            val sleepRecords = client.readRecords(
-                ReadRecordsRequest(
-                    SleepSessionRecord::class,
-                    TimeRangeFilter.between(sleepStart, now)
-                )
-            ).records
-
-            val hrvRecords = client.readRecords(
-                ReadRecordsRequest(
-                    HeartRateVariabilityRmssdRecord::class,
-                    TimeRangeFilter.between(sleepStart, now)
-                )
-            ).records
-
-            val restingRecords = client.readRecords(
-                ReadRecordsRequest(
-                    RestingHeartRateRecord::class,
-                    TimeRangeFilter.between(sleepStart, now)
-                )
-            ).records
-
+            val now = Instant.now(); val sleepStart = now.minus(Duration.ofDays(14)); val workoutStart = now.minus(Duration.ofDays(30))
+            val sleepRecords = client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(sleepStart, now))).records
+            val hrvRecords = client.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, TimeRangeFilter.between(sleepStart, now))).records
+            val restingRecords = client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, TimeRangeFilter.between(sleepStart, now))).records
             val sleepJson = JSONArray()
-            val groupedSleep = sleepRecords.groupBy {
-                it.endTime.atZone(ZoneId.systemDefault()).toLocalDate()
-            }
+            val groupedSleep = sleepRecords.groupBy { it.endTime.atZone(ZoneId.systemDefault()).toLocalDate() }
             for ((day, sessionsForDay) in groupedSleep) {
                 val main = sessionsForDay.maxByOrNull { Duration.between(it.startTime, it.endTime) } ?: continue
-                fun minutesOf(type: Int) = main.stages.filter { it.stage == type }
-                    .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
-
-                val deep = minutesOf(SleepSessionRecord.STAGE_TYPE_DEEP)
-                val rem = minutesOf(SleepSessionRecord.STAGE_TYPE_REM)
-                val light = minutesOf(SleepSessionRecord.STAGE_TYPE_LIGHT)
-                val generic = minutesOf(SleepSessionRecord.STAGE_TYPE_SLEEPING)
-                val stagedSleep = deep + rem + light + generic
-                val totalSleep = if (stagedSleep > 0) stagedSleep else Duration.between(main.startTime, main.endTime).toMinutes()
-
-                val hrv = hrvRecords.filter { it.time >= main.startTime && it.time <= main.endTime }
-                    .map { it.heartRateVariabilityMillis }
-                    .takeIf { it.isNotEmpty() }?.average()
-
-                val resting = restingRecords.filter {
-                    it.time >= main.startTime.minus(Duration.ofHours(3)) &&
-                        it.time <= main.endTime.plus(Duration.ofHours(3))
-                }.map { it.beatsPerMinute }.takeIf { it.isNotEmpty() }?.average()
-
-                val naps = JSONArray()
-                sessionsForDay.filter { it.metadata.id != main.metadata.id }.forEach { nap ->
-                    naps.put(
-                        JSONObject()
-                            .put("start", nap.startTime.toString())
-                            .put("end", nap.endTime.toString())
-                            .put("duration_min", Duration.between(nap.startTime, nap.endTime).toMinutes())
-                            .put("source_app", nap.metadata.dataOrigin.packageName)
-                    )
-                }
-
-                val o = JSONObject()
-                    .put("external_id", main.metadata.id)
-                    .put("source_app", main.metadata.dataOrigin.packageName)
-                    .put("sleep_date", day.toString())
-                    .put("sleep_start", main.startTime.toString())
-                    .put("sleep_end", main.endTime.toString())
-                    .put("total_sleep_min", totalSleep)
-                    .put("deep_sleep_min", deep)
-                    .put("rem_sleep_min", rem)
-                    .put("light_sleep_min", light)
-                    .put("naps", naps)
-                if (hrv != null) o.put("avg_hrv", hrv)
-                if (resting != null) o.put("resting_hr", resting.toInt())
-                sleepJson.put(o)
+                fun minutesOf(type: Int) = main.stages.filter { it.stage == type }.sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
+                val deep=minutesOf(SleepSessionRecord.STAGE_TYPE_DEEP); val rem=minutesOf(SleepSessionRecord.STAGE_TYPE_REM); val light=minutesOf(SleepSessionRecord.STAGE_TYPE_LIGHT); val generic=minutesOf(SleepSessionRecord.STAGE_TYPE_SLEEPING); val stagedSleep=deep+rem+light+generic; val totalSleep=if(stagedSleep>0)stagedSleep else Duration.between(main.startTime,main.endTime).toMinutes()
+                val hrv=hrvRecords.filter{it.time>=main.startTime&&it.time<=main.endTime}.map{it.heartRateVariabilityMillis}.takeIf{it.isNotEmpty()}?.average()
+                val resting=restingRecords.filter{it.time>=main.startTime.minus(Duration.ofHours(3))&&it.time<=main.endTime.plus(Duration.ofHours(3))}.map{it.beatsPerMinute}.takeIf{it.isNotEmpty()}?.average()
+                val naps=JSONArray();sessionsForDay.filter{it.metadata.id!=main.metadata.id}.forEach{nap->naps.put(JSONObject().put("start",nap.startTime.toString()).put("end",nap.endTime.toString()).put("duration_min",Duration.between(nap.startTime,nap.endTime).toMinutes()).put("source_app",nap.metadata.dataOrigin.packageName))}
+                val o=JSONObject().put("external_id",main.metadata.id).put("source_app",main.metadata.dataOrigin.packageName).put("sleep_date",day.toString()).put("sleep_start",main.startTime.toString()).put("sleep_end",main.endTime.toString()).put("total_sleep_min",totalSleep).put("deep_sleep_min",deep).put("rem_sleep_min",rem).put("light_sleep_min",light).put("naps",naps);if(hrv!=null)o.put("avg_hrv",hrv);if(resting!=null)o.put("resting_hr",resting.toInt());sleepJson.put(o)
             }
-
-            val sessions = client.readRecords(
-                ReadRecordsRequest(
-                    ExerciseSessionRecord::class,
-                    TimeRangeFilter.between(workoutStart, now)
-                )
-            ).records
-
-            val activitiesJson = JSONArray()
-            for (s in sessions) {
-                val hr = client.readRecords(
-                    ReadRecordsRequest(
-                        HeartRateRecord::class,
-                        TimeRangeFilter.between(s.startTime, s.endTime)
-                    )
-                ).records.flatMap { it.samples }.map { it.beatsPerMinute }
-
-                val distances = client.readRecords(
-                    ReadRecordsRequest(
-                        DistanceRecord::class,
-                        TimeRangeFilter.between(s.startTime, s.endTime)
-                    )
-                ).records.sumOf { it.distance.inKilometers }
-
-                val calories = client.readRecords(
-                    ReadRecordsRequest(
-                        TotalCaloriesBurnedRecord::class,
-                        TimeRangeFilter.between(s.startTime, s.endTime)
-                    )
-                ).records.sumOf { it.energy.inKilocalories }
-
-                val type = when (s.exerciseType) {
-                    ExerciseSessionRecord.EXERCISE_TYPE_SOCCER -> "football"
-                    ExerciseSessionRecord.EXERCISE_TYPE_RUNNING,
-                    ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "run"
-                    ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
-                    ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING -> "gym"
-                    else -> "other"
+            val sessions=client.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class,TimeRangeFilter.between(workoutStart,now))).records
+            val activitiesJson=JSONArray()
+            for(s in sessions){
+                val hr=client.readRecords(ReadRecordsRequest(HeartRateRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.flatMap{it.samples}.map{it.beatsPerMinute}
+                val distances=client.readRecords(ReadRecordsRequest(DistanceRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.sumOf{it.distance.inKilometers}
+                val calories=client.readRecords(ReadRecordsRequest(TotalCaloriesBurnedRecord::class,TimeRangeFilter.between(s.startTime,s.endTime))).records.sumOf{it.energy.inKilocalories}
+                val type=when(s.exerciseType){
+                    ExerciseSessionRecord.EXERCISE_TYPE_SOCCER->"football"
+                    ExerciseSessionRecord.EXERCISE_TYPE_BIKING,ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY->"cycling"
+                    ExerciseSessionRecord.EXERCISE_TYPE_RUNNING,ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL->"run"
+                    ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING->"gym"
+                    else->"other"
                 }
-
-                val o = JSONObject()
-                    .put("external_id", s.metadata.id)
-                    .put("source_app", s.metadata.dataOrigin.packageName)
-                    .put("activity_date", s.startTime.atZone(ZoneId.systemDefault()).toLocalDate().toString())
-                    .put("started_at", s.startTime.toString())
-                    .put("activity_type", type)
-                    .put("title", s.title ?: "Health Connect")
-                    .put("duration_min", Duration.between(s.startTime, s.endTime).seconds / 60.0)
-                    .put("distance_km", distances)
-                    .put("calories", calories.toInt())
-                if (hr.isNotEmpty()) {
-                    o.put("avg_hr", hr.average().toInt())
-                    o.put("max_hr", hr.max())
-                }
-                activitiesJson.put(o)
+                val o=JSONObject().put("external_id",s.metadata.id).put("source_app",s.metadata.dataOrigin.packageName).put("activity_date",s.startTime.atZone(ZoneId.systemDefault()).toLocalDate().toString()).put("started_at",s.startTime.toString()).put("activity_type",type).put("title",s.title?:"Health Connect").put("duration_min",Duration.between(s.startTime,s.endTime).seconds/60.0).put("distance_km",distances).put("calories",calories.toInt()).put("metrics",JSONObject().put("health_connect_exercise_type",s.exerciseType));if(hr.isNotEmpty()){o.put("avg_hr",hr.average().toInt());o.put("max_hr",hr.max())};activitiesJson.put(o)
             }
-
-            val payload = JSONObject().put("sleep", sleepJson).put("activities", activitiesJson)
-            val result = withContext(Dispatchers.IO) { postToSupabase(payload.toString()) }
-            sendSuccess(result)
-        } catch (_: Exception) {
-            sendError("No se ha completado la sincronización. Comprueba permisos y conexión.")
-        } finally {
-            pendingToken = null
-            pendingSupabaseUrl = null
-            syncing = false
-        }
+            val payload=JSONObject().put("sleep",sleepJson).put("activities",activitiesJson)
+            val result=withContext(Dispatchers.IO){postToSupabase(payload.toString())};sendSuccess(result)
+        }catch(_:Exception){sendError("No se ha completado la sincronización. Comprueba permisos y conexión.")}finally{pendingToken=null;pendingSupabaseUrl=null;syncing=false}
     }
-
-    private fun postToSupabase(json: String): String {
-        val base = backendUrl
-        val token = pendingToken ?: error("Falta sesión")
-        val url = URL("$base/functions/v1/health-connect-ingest")
-        val conn = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            doOutput = true
-            connectTimeout = 15000
-            readTimeout = 30000
-            setRequestProperty("Authorization", "Bearer $token")
-            setRequestProperty("Content-Type", "application/json")
-        }
-        conn.outputStream.use { it.write(json.toByteArray()) }
-        val body = (if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream)
-            .bufferedReader().use { it.readText() }
-        if (conn.responseCode !in 200..299) error(body)
-        return body
-    }
-
-    private fun sendSuccess(result: String) = runOnUiThread {
-        webView.evaluateJavascript("window.healthConnectSyncFinished(${JSONObject.quote(result)})", null)
-    }
-
-    private fun sendError(message: String) = runOnUiThread {
-        webView.evaluateJavascript("window.healthConnectSyncError(${JSONObject.quote(message)})", null)
-    }
+    private fun postToSupabase(json:String):String{val token=pendingToken?:error("Falta sesión");val url=URL("$backendUrl/functions/v1/health-connect-ingest");val conn=(url.openConnection() as HttpURLConnection).apply{requestMethod="POST";doOutput=true;connectTimeout=15000;readTimeout=30000;setRequestProperty("Authorization","Bearer $token");setRequestProperty("Content-Type","application/json")};conn.outputStream.use{it.write(json.toByteArray())};val body=(if(conn.responseCode in 200..299)conn.inputStream else conn.errorStream).bufferedReader().use{it.readText()};if(conn.responseCode !in 200..299)error(body);return body}
+    private fun sendSuccess(result:String)=runOnUiThread{webView.evaluateJavascript("window.healthConnectSyncFinished(${JSONObject.quote(result)})",null)}
+    private fun sendError(message:String)=runOnUiThread{webView.evaluateJavascript("window.healthConnectSyncError(${JSONObject.quote(message)})",null)}
 }
